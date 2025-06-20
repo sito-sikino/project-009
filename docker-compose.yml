@@ -27,9 +27,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_DB=discord_agent
-      - POSTGRES_USER=discord_agent
-      - POSTGRES_PASSWORD=discord_agent_password
+      - POSTGRES_DB=${POSTGRES_DB:-discord_agent}
+      - POSTGRES_USER=${POSTGRES_USER:-discord_agent}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
       - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -49,8 +49,8 @@ services:
     ports:
       - "8080:80"
     environment:
-      - PGADMIN_DEFAULT_EMAIL=admin@discord-agent.local
-      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL:-admin@discord-agent.local}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
       - PGADMIN_CONFIG_SERVER_MODE=False
     volumes:
       - pgadmin_data:/var/lib/pgadmin
@@ -78,6 +78,8 @@ services:
   discord-agent:
     build: .
     container_name: discord-agent-app
+    ports:
+      - "8000:8000"  # Health check API
     depends_on:
       redis:
         condition: service_healthy
@@ -85,9 +87,10 @@ services:
         condition: service_healthy
     environment:
       - REDIS_URL=redis://redis:6379
-      - POSTGRESQL_URL=postgresql://discord_agent:discord_agent_password@postgres:5432/discord_agent
+      - POSTGRESQL_URL=postgresql://${POSTGRES_USER:-discord_agent}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-discord_agent}
       - LOG_LEVEL=INFO
       - ENVIRONMENT=production
+      - HEALTH_CHECK_PORT=8000
       # Discord tokens should be set via .env file
       - DISCORD_RECEPTION_TOKEN=${DISCORD_RECEPTION_TOKEN}
       - DISCORD_SPECTRA_TOKEN=${DISCORD_SPECTRA_TOKEN}
@@ -95,8 +98,21 @@ services:
       - DISCORD_PAZ_TOKEN=${DISCORD_PAZ_TOKEN}
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - TARGET_GUILD_ID=${TARGET_GUILD_ID}
+      # Production monitoring configuration
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - HOT_MEMORY_TARGET_MS=${HOT_MEMORY_TARGET_MS:-100}
+      - COLD_MEMORY_TARGET_MS=${COLD_MEMORY_TARGET_MS:-3000}
+      - EMBEDDING_TARGET_MS=${EMBEDDING_TARGET_MS:-2000}
+      - CIRCUIT_BREAKER_FAILURE_THRESHOLD=${CIRCUIT_BREAKER_FAILURE_THRESHOLD:-5}
+      - CIRCUIT_BREAKER_RECOVERY_TIMEOUT=${CIRCUIT_BREAKER_RECOVERY_TIMEOUT:-60}
     volumes:
       - app_logs:/app/logs
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health/ready', timeout=5)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     profiles:
       - production
     restart: unless-stopped

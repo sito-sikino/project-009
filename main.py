@@ -8,6 +8,7 @@ import os
 import sys
 import asyncio
 import logging
+import time
 from typing import Dict, List
 import signal
 
@@ -20,7 +21,9 @@ from src.langgraph_supervisor import AgentSupervisor
 from src.gemini_client import GeminiClient
 from src.output_bots import SpectraBot, LynQBot, PazBot
 from src.message_router import MessageRouter
-from src.memory_system import DiscordMemorySystem, create_memory_system
+from src.memory_system_improved import ImprovedDiscordMemorySystem, create_improved_memory_system
+from src.monitoring import performance_monitor, monitor_performance
+from src.health_api import setup_health_monitoring
 
 
 class DiscordMultiAgentSystem:
@@ -39,6 +42,7 @@ class DiscordMultiAgentSystem:
         self.validate_environment()
         self.initialize_components()
         self.running = False
+        self.health_server = None
     
     def setup_logging(self):
         """ログシステム設定"""
@@ -92,9 +96,9 @@ class DiscordMultiAgentSystem:
         )
         self.logger.info("✅ Gemini Client initialized")
         
-        # Memory System (Redis + PostgreSQL)
-        self.memory_system = create_memory_system()
-        self.logger.info("✅ Memory System created")
+        # Memory System (Improved Version with Production Features)
+        self.memory_system = create_improved_memory_system()
+        self.logger.info("✅ Improved Memory System created with production features")
         
         # LangGraph Supervisor (Memory System統合)
         self.supervisor = AgentSupervisor(
@@ -122,31 +126,60 @@ class DiscordMultiAgentSystem:
         self.logger.info("🚀 All components initialized successfully")
     
     async def message_processing_loop(self):
-        """メッセージ処理メインループ"""
-        self.logger.info("Starting message processing loop...")
+        """メッセージ処理メインループ（監視機能付き）"""
+        self.logger.info("Starting message processing loop with performance monitoring...")
         
         while self.running:
             try:
+                start_time = time.time()
+                
                 # Priority Queueからメッセージ取得
                 message_data = await self.priority_queue.dequeue()
                 
                 self.logger.info(f"Processing message: {message_data['message'].content[:50]}...")
                 
-                # LangGraph Supervisorで処理
+                # LangGraph Supervisorで処理（監視付き）
                 initial_state = {
                     'messages': [{'role': 'user', 'content': message_data['message'].content}],
-                    'channel_id': str(message_data['message'].channel.id)
+                    'channel_id': str(message_data['message'].channel.id),
+                    'user_id': str(message_data['message'].author.id),
+                    'message_id': str(message_data['message'].id)
                 }
                 
-                supervisor_result = await self.supervisor.process_message(initial_state)
+                supervisor_result = await performance_monitor.record_operation(
+                    "message_processing", 
+                    "supervisor",
+                    self.supervisor.process_message,
+                    initial_state
+                )
                 
-                # Message Routerで配信
-                await self.message_router.route_message(supervisor_result)
+                # Message Routerで配信（監視付き）
+                await performance_monitor.record_operation(
+                    "message_routing",
+                    "router", 
+                    self.message_router.route_message,
+                    supervisor_result
+                )
                 
-                self.logger.info(f"Message processed successfully by {supervisor_result['selected_agent']}")
+                # パフォーマンスメトリクス記録
+                total_time = time.time() - start_time
+                performance_monitor.metrics.record_discord_message(
+                    message_type="user_message",
+                    agent=supervisor_result.get('selected_agent', 'unknown'),
+                    response_time=total_time
+                )
+                
+                self.logger.info(
+                    f"Message processed successfully by {supervisor_result['selected_agent']} "
+                    f"in {total_time:.3f}s"
+                )
                 
             except Exception as e:
                 self.logger.error(f"Error in message processing loop: {e}")
+                performance_monitor.metrics.record_system_error(
+                    error_type=type(e).__name__,
+                    component="message_loop"
+                )
                 await asyncio.sleep(1)  # エラー時の短い待機
     
     async def start_clients(self):
@@ -174,6 +207,21 @@ class DiscordMultiAgentSystem:
         if not memory_ready:
             self.logger.warning("⚠️ Memory System initialization failed - continuing without memory")
         
+        # ヘルスチェック・監視システム初期化
+        try:
+            health_port = int(os.getenv('HEALTH_CHECK_PORT', '8000'))
+            discord_clients = [self.reception_client, self.spectra_bot, self.lynq_bot, self.paz_bot]
+            
+            self.health_server = await setup_health_monitoring(
+                self.memory_system,
+                discord_clients,
+                health_port
+            )
+            self.logger.info(f"✅ Health monitoring started on port {health_port}")
+            
+        except Exception as e:
+            self.logger.warning(f"⚠️ Health monitoring setup failed: {e}")
+        
         self.running = True
         
         try:
@@ -194,6 +242,14 @@ class DiscordMultiAgentSystem:
         self.logger.info("Shutting down Discord Multi-Agent System...")
         
         self.running = False
+        
+        # ヘルスチェックサーバー停止
+        if self.health_server:
+            try:
+                self.health_server.stop()
+                self.logger.info("✅ Health monitoring server stopped")
+            except Exception as e:
+                self.logger.error(f"Error stopping health server: {e}")
         
         # Memory System正常終了
         try:
