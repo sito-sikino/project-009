@@ -99,6 +99,15 @@ class GeminiClient:
         hot_memory = context.get('hot_memory', [])
         cold_memory = context.get('cold_memory', [])
         
+        # メンション処理
+        mention_override = ""
+        if '<@1364657009009627237>' in message:  # LynQ ID
+            mention_override = "\n**重要**: このメッセージはLYNQに向けられています。LYNQを選択してください。"
+        elif '<@1383050248280346685>' in message:  # Paz ID  
+            mention_override = "\n**重要**: このメッセージはPAZに向けられています。PAZを選択してください。"
+        elif '<@1364635447225225286>' in message:  # Spectra ID
+            mention_override = "\n**重要**: このメッセージはSPECTRAに向けられています。SPECTRAを選択してください。"
+        
         # メモリコンテキスト構築
         memory_context = ""
         if hot_memory:
@@ -116,12 +125,12 @@ class GeminiClient:
 以下のメッセージに対して、最適なエージェント選択と応答内容を同時に生成してください。
 
 ## エージェント特性:
-- **SPECTRA**: メタ進行役、議論の構造化、全体方針整理、一般対話
-- **LYNQ**: 論理収束役、技術的検証、構造化分析、問題解決
-- **PAZ**: 発散創造役、革新的アイデア、創造的テーマ、ブレインストーミング
+- **SPECTRA** (ID: 1364635447225225286): メタ進行役、議論の構造化、全体方針整理、一般対話
+- **LYNQ** (ID: 1364657009009627237): 論理収束役、技術的検証、構造化分析、問題解決
+- **PAZ** (ID: 1383050248280346685): 発散創造役、革新的アイデア、創造的テーマ、ブレインストーミング
 
 ## ユーザーメッセージ:
-{message}
+{message}{mention_override}
 
 {memory_context}
 

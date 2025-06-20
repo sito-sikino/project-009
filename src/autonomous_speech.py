@@ -116,7 +116,7 @@ class AutonomousSpeechSystem:
         
         # 環境別設定（テスト時は頻度上げる）
         self.speech_probability = self._get_speech_probability()
-        self.tick_interval = 60 if self.environment == Environment.TEST else 300  # テスト:1分, 本番:5分
+        self.tick_interval = 10 if self.environment == Environment.TEST else 300  # テスト:10秒, 本番:5分
         
         # システムコンポーネント
         self.conversation_detector = ConversationDetector(silence_threshold_minutes=10)
@@ -186,8 +186,13 @@ class AutonomousSpeechSystem:
                 await asyncio.sleep(60)  # エラー時は1分待機
                 
     async def _execute_autonomous_speech(self):
-        """自発発言実行"""
+        """自発発言実行 - 真の10秒ルール実装"""
         try:
+            # グローバル最後発言時刻チェック
+            if not await self._can_post_autonomous_message():
+                logger.debug("🚫 10秒ルール: まだ前回から10秒経過していません")
+                return
+            
             # アクティブでないチャンネルを特定
             available_channels = self._get_available_channels()
             
@@ -204,7 +209,7 @@ class AutonomousSpeechSystem:
             # パーソナリティメッセージ生成
             message = self.personality_generator.get_random_message(selected_agent)
             
-            # メッセージキューに追加
+            # メッセージキューに追加（グローバルタイムスタンプ更新含む）
             await self._queue_autonomous_message(selected_channel, selected_agent, message)
             
             logger.info(f"🎙️ Autonomous speech executed: {selected_agent} -> #{selected_channel}")
@@ -238,8 +243,63 @@ class AutonomousSpeechSystem:
             # 未定義チャンネルの場合はランダム
             return random.choice(["spectra", "lynq", "paz"])
             
+    async def _can_post_autonomous_message(self) -> bool:
+        """グローバル10秒ルールチェック - 最後の自発発言から10秒経過しているか"""
+        try:
+            with open("message_queue.json", "r", encoding='utf-8') as f:
+                queue_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            return True  # キューファイルがない場合は投稿可能
+        
+        # 最新の自発発言メッセージのタイムスタンプを取得
+        autonomous_messages = [
+            item for item in queue_data 
+            if item.get('event_type') == 'autonomous_speech'
+        ]
+        
+        if not autonomous_messages:
+            return True  # 自発発言がない場合は投稿可能
+        
+        # 最新メッセージのタイムスタンプを取得
+        latest_message = max(autonomous_messages, key=lambda x: x.get('timestamp', '1970-01-01'))
+        latest_timestamp = datetime.fromisoformat(latest_message.get('timestamp', '1970-01-01'))
+        
+        # 10秒経過チェック
+        time_since_last = datetime.now() - latest_timestamp
+        return time_since_last >= timedelta(seconds=10)
+
     async def _queue_autonomous_message(self, channel: str, agent: str, message: str):
-        """自発メッセージをキューに追加"""
+        """自発メッセージをキューに追加 - 真の10秒ルール対応"""
+        # キューファイル読み込み
+        try:
+            with open("message_queue.json", "r", encoding='utf-8') as f:
+                queue_data = json.load(f)
+        except (FileNotFoundError, json.JSONDecodeError):
+            queue_data = []
+        
+        # 古い処理済みメッセージを削除（5分以上前）
+        cutoff_time = datetime.now() - timedelta(minutes=5)
+        queue_data = [item for item in queue_data 
+                     if not (item.get('processed', False) 
+                            and item.get('event_type') == 'autonomous_speech'
+                            and datetime.fromisoformat(item.get('timestamp', '1970-01-01')) < cutoff_time)]
+        
+        # キューサイズ制限（最大20件に削減）
+        if len(queue_data) >= 20:
+            logger.warning(f"⚠️ キューサイズ制限に達しているため、自発メッセージ追加をスキップ: {len(queue_data)}件")
+            return
+        
+        # 未処理の自発発言メッセージがあるかチェック
+        unprocessed_autonomous = [
+            item for item in queue_data 
+            if item.get('event_type') == 'autonomous_speech' 
+            and not item.get('processed', False)
+        ]
+        
+        if unprocessed_autonomous:
+            logger.info(f"🚫 未処理自発メッセージが{len(unprocessed_autonomous)}件存在するため、新規追加をスキップ")
+            return
+        
         queue_item = {
             'id': f"autonomous_{agent}_{datetime.now().isoformat()}",
             'content': message,
@@ -252,22 +312,16 @@ class AutonomousSpeechSystem:
             'processed': False,
             'priority': 5,  # 自発発言は最低優先度
             'event_type': 'autonomous_speech',
-            'speech_probability': self.speech_probability
+            'speech_probability': self.speech_probability,
+            'global_timing_enforced': True  # 真の10秒ルール適用済みフラグ
         }
         
-        # キューファイルに追加
-        try:
-            with open("message_queue.json", "r", encoding='utf-8') as f:
-                queue_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            queue_data = []
-            
         queue_data.append(queue_item)
         
         with open("message_queue.json", "w", encoding='utf-8') as f:
-            json.dump(queue_data, indent=2, ensure_ascii=False)
+            json.dump(queue_data, f, indent=2, ensure_ascii=False)
             
-        logger.info(f"📝 Autonomous message queued: {agent} -> #{channel}")
+        logger.info(f"📝 Autonomous message queued (10s rule enforced): {agent} -> #{channel}")
         
     def notify_user_activity(self, channel_id: str):
         """ユーザー活動通知（外部から呼び出し）"""
