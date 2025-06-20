@@ -20,6 +20,7 @@ from src.langgraph_supervisor import AgentSupervisor
 from src.gemini_client import GeminiClient
 from src.output_bots import SpectraBot, LynQBot, PazBot
 from src.message_router import MessageRouter
+from src.memory_system import DiscordMemorySystem, create_memory_system
 
 
 class DiscordMultiAgentSystem:
@@ -91,12 +92,16 @@ class DiscordMultiAgentSystem:
         )
         self.logger.info("✅ Gemini Client initialized")
         
-        # LangGraph Supervisor
+        # Memory System (Redis + PostgreSQL)
+        self.memory_system = create_memory_system()
+        self.logger.info("✅ Memory System created")
+        
+        # LangGraph Supervisor (Memory System統合)
         self.supervisor = AgentSupervisor(
             gemini_client=self.gemini_client,
-            memory_system=None  # TODO: Redis/PostgreSQL実装時に追加
+            memory_system=self.memory_system
         )
-        self.logger.info("✅ LangGraph Supervisor initialized")
+        self.logger.info("✅ LangGraph Supervisor with Memory System initialized")
         
         # Output Bots
         self.spectra_bot = SpectraBot(token=os.getenv('DISCORD_SPECTRA_TOKEN'))
@@ -163,6 +168,12 @@ class DiscordMultiAgentSystem:
         self.logger.info("🤖 Starting Discord Multi-Agent System")
         self.logger.info("Architecture: 統合受信・個別送信型")
         
+        # Memory System接続確立
+        self.logger.info("Initializing Memory System connections...")
+        memory_ready = await self.memory_system.initialize()
+        if not memory_ready:
+            self.logger.warning("⚠️ Memory System initialization failed - continuing without memory")
+        
         self.running = True
         
         try:
@@ -183,6 +194,13 @@ class DiscordMultiAgentSystem:
         self.logger.info("Shutting down Discord Multi-Agent System...")
         
         self.running = False
+        
+        # Memory System正常終了
+        try:
+            await self.memory_system.cleanup()
+            self.logger.info("✅ Memory System closed")
+        except Exception as e:
+            self.logger.error(f"Error closing Memory System: {e}")
         
         # Discord clientsを正常終了
         clients = [

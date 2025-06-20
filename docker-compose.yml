@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  # Redis - Hot Memory (当日会話履歴)
+  redis:
+    image: redis:7-alpine
+    container_name: discord-agent-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    environment:
+      - REDIS_REPLICATION_MODE=master
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # PostgreSQL with pgvector - Cold Memory (長期記憶・セマンティック検索)
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: discord-agent-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_DB=discord_agent
+      - POSTGRES_USER=discord_agent
+      - POSTGRES_PASSWORD=discord_agent_password
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --locale=C
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database/init:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U discord_agent -d discord_agent"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
+
+  # pgAdmin - PostgreSQL管理インターフェース (開発用)
+  pgadmin:
+    image: dpage/pgadmin4:7
+    container_name: discord-agent-pgadmin
+    ports:
+      - "8080:80"
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@discord-agent.local
+      - PGADMIN_DEFAULT_PASSWORD=admin
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    depends_on:
+      - postgres
+    profiles:
+      - development
+    restart: unless-stopped
+
+  # Redis Commander - Redis管理インターフェース (開発用)
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: discord-agent-redis-commander
+    ports:
+      - "8081:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    depends_on:
+      - redis
+    profiles:
+      - development
+    restart: unless-stopped
+
+  # Discord Agent Application (本番用)
+  discord-agent:
+    build: .
+    container_name: discord-agent-app
+    depends_on:
+      redis:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - POSTGRESQL_URL=postgresql://discord_agent:discord_agent_password@postgres:5432/discord_agent
+      - LOG_LEVEL=INFO
+      - ENVIRONMENT=production
+      # Discord tokens should be set via .env file
+      - DISCORD_RECEPTION_TOKEN=${DISCORD_RECEPTION_TOKEN}
+      - DISCORD_SPECTRA_TOKEN=${DISCORD_SPECTRA_TOKEN}
+      - DISCORD_LYNQ_TOKEN=${DISCORD_LYNQ_TOKEN}
+      - DISCORD_PAZ_TOKEN=${DISCORD_PAZ_TOKEN}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - TARGET_GUILD_ID=${TARGET_GUILD_ID}
+    volumes:
+      - app_logs:/app/logs
+    profiles:
+      - production
+    restart: unless-stopped
+
+volumes:
+  redis_data:
+    driver: local
+  postgres_data:
+    driver: local
+  pgadmin_data:
+    driver: local
+  app_logs:
+    driver: local
+
+networks:
+  default:
+    name: discord-agent-network
