@@ -11,6 +11,10 @@ import logging
 import time
 from typing import Dict, List
 import signal
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
 
 # プロジェクトルートをPythonパスに追加
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -24,6 +28,8 @@ from src.message_router import MessageRouter
 from src.memory_system_improved import ImprovedDiscordMemorySystem, create_improved_memory_system
 from src.monitoring import performance_monitor, monitor_performance
 from src.health_api import setup_health_monitoring
+from src.daily_workflow import DailyWorkflowSystem
+from src.autonomous_speech import AutonomousSpeechSystem
 
 
 class DiscordMultiAgentSystem:
@@ -123,6 +129,21 @@ class DiscordMultiAgentSystem:
         self.message_router = MessageRouter(bots=self.bots)
         self.logger.info("✅ Message Router initialized")
         
+        # Daily Workflow System
+        channel_ids = {
+            "command_center": int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '1383963657137946664')),
+            "lounge": int(os.getenv('LOUNGE_CHANNEL_ID', '1383966355962990653')),
+            "development": int(os.getenv('DEVELOPMENT_CHANNEL_ID', '1383968516033478727')),
+            "creation": int(os.getenv('CREATION_CHANNEL_ID', '1383981653046726728'))
+        }
+        self.daily_workflow = DailyWorkflowSystem(channel_ids)
+        self.logger.info("✅ Daily Workflow System initialized")
+        
+        # Autonomous Speech System
+        environment = os.getenv('ENVIRONMENT', 'production')
+        self.autonomous_speech = AutonomousSpeechSystem(channel_ids, environment)
+        self.logger.info("✅ Autonomous Speech System initialized")
+        
         self.logger.info("🚀 All components initialized successfully")
     
     async def message_processing_loop(self):
@@ -137,6 +158,10 @@ class DiscordMultiAgentSystem:
                 message_data = await self.priority_queue.dequeue()
                 
                 self.logger.info(f"Processing message: {message_data['message'].content[:50]}...")
+                
+                # ユーザー活動通知（会話中断回避）
+                if hasattr(self, 'autonomous_speech') and not message_data['message'].author.bot:
+                    self.autonomous_speech.notify_user_activity(str(message_data['message'].channel.id))
                 
                 # LangGraph Supervisorで処理（監視付き）
                 initial_state = {
@@ -183,18 +208,54 @@ class DiscordMultiAgentSystem:
                 await asyncio.sleep(1)  # エラー時の短い待機
     
     async def start_clients(self):
-        """全Discordクライアント開始"""
+        """Start Discord clients with sequential connection approach"""
         self.logger.info("Starting Discord clients...")
         
-        # 全クライアントを並行実行
-        clients = [
-            self.reception_client.start(os.getenv('DISCORD_RECEPTION_TOKEN')),
-            self.spectra_bot.start(os.getenv('DISCORD_SPECTRA_TOKEN')),
-            self.lynq_bot.start(os.getenv('DISCORD_LYNQ_TOKEN')),
-            self.paz_bot.start(os.getenv('DISCORD_PAZ_TOKEN'))
+        # ARCHITECTURE FIX: Sequential connection to prevent event loop conflicts
+        self.logger.info("🔧 FIXED: Implementing sequential connection approach")
+        
+        # Sequential connection with proper error handling
+        connection_order = [
+            ("Reception Client", self.reception_client, os.getenv('DISCORD_RECEPTION_TOKEN')),
+            ("Spectra Bot", self.spectra_bot, os.getenv('DISCORD_SPECTRA_TOKEN')),
+            ("LynQ Bot", self.lynq_bot, os.getenv('DISCORD_LYNQ_TOKEN')),
+            ("Paz Bot", self.paz_bot, os.getenv('DISCORD_PAZ_TOKEN'))
         ]
         
-        await asyncio.gather(*clients)
+        connected_clients = []
+        
+        for name, client, token in connection_order:
+            try:
+                self.logger.info(f"🔌 Connecting {name}...")
+                
+                # Create background task for client connection
+                connection_task = asyncio.create_task(client.start(token))
+                
+                # Allow brief initialization time
+                await asyncio.sleep(2)
+                
+                # Check if connection is progressing
+                if not connection_task.done():
+                    self.logger.info(f"✅ {name} connection initiated successfully")
+                    connected_clients.append((name, client, connection_task))
+                else:
+                    # Connection completed immediately or failed
+                    try:
+                        await connection_task
+                        self.logger.info(f"✅ {name} connected successfully")
+                        connected_clients.append((name, client, connection_task))
+                    except Exception as e:
+                        self.logger.error(f"❌ {name} connection failed: {e}")
+                        
+            except Exception as e:
+                self.logger.error(f"❌ Failed to start {name}: {e}")
+                # Continue with other clients
+                continue
+        
+        self.logger.info(f"🎉 Successfully initiated {len(connected_clients)}/4 Discord clients")
+        
+        # Store connected clients for monitoring
+        self.connected_clients = connected_clients
     
     async def run(self):
         """システムメイン実行"""
@@ -224,8 +285,16 @@ class DiscordMultiAgentSystem:
         
         self.running = True
         
+        # Daily Workflow System 開始
+        await self.daily_workflow.start()
+        self.logger.info("✅ Daily Workflow System started")
+        
+        # Autonomous Speech System 開始
+        await self.autonomous_speech.start()
+        self.logger.info("✅ Autonomous Speech System started")
+        
         try:
-            # 並行実行: Discord clients + Message processing
+            # 並行実行: Discord clients + Message processing + Daily workflow
             await asyncio.gather(
                 self.start_clients(),
                 self.message_processing_loop()
@@ -243,6 +312,20 @@ class DiscordMultiAgentSystem:
         
         self.running = False
         
+        # Daily Workflow System 停止
+        try:
+            await self.daily_workflow.stop()
+            self.logger.info("✅ Daily Workflow System stopped")
+        except Exception as e:
+            self.logger.error(f"Error stopping Daily Workflow System: {e}")
+        
+        # Autonomous Speech System 停止
+        try:
+            await self.autonomous_speech.stop()
+            self.logger.info("✅ Autonomous Speech System stopped")
+        except Exception as e:
+            self.logger.error(f"Error stopping Autonomous Speech System: {e}")
+        
         # ヘルスチェックサーバー停止
         if self.health_server:
             try:
@@ -258,19 +341,44 @@ class DiscordMultiAgentSystem:
         except Exception as e:
             self.logger.error(f"Error closing Memory System: {e}")
         
-        # Discord clientsを正常終了
-        clients = [
-            self.reception_client,
-            self.spectra_bot,
-            self.lynq_bot,
-            self.paz_bot
-        ]
-        
-        for client in clients:
-            try:
-                await client.close()
-            except Exception as e:
-                self.logger.error(f"Error closing client: {e}")
+        # Discord clientsを正常終了（新しいアーキテクチャ対応）
+        if hasattr(self, 'connected_clients'):
+            # Sequential connection approach用のクリーンアップ
+            for name, client, task in getattr(self, 'connected_clients', []):
+                try:
+                    self.logger.info(f"🔌 Closing {name}...")
+                    
+                    # Cancel connection task if still running
+                    if not task.done():
+                        task.cancel()
+                        try:
+                            await task
+                        except asyncio.CancelledError:
+                            pass
+                    
+                    # Close client if not already closed
+                    if not client.is_closed():
+                        await client.close()
+                        
+                    self.logger.info(f"✅ {name} closed successfully")
+                    
+                except Exception as e:
+                    self.logger.error(f"❌ Error closing {name}: {e}")
+        else:
+            # Fallback: 従来の方式
+            clients = [
+                self.reception_client,
+                self.spectra_bot,
+                self.lynq_bot,
+                self.paz_bot
+            ]
+            
+            for client in clients:
+                try:
+                    if not client.is_closed():
+                        await client.close()
+                except Exception as e:
+                    self.logger.error(f"Error closing client: {e}")
         
         self.logger.info("✅ System shutdown completed")
     

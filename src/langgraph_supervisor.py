@@ -224,7 +224,7 @@ class AgentSupervisor:
                 }
                 
                 # メモリ更新
-                await self.memory_system.update_memory(conversation_data)
+                await self.memory_system.update_memory_transactional(conversation_data)
                 
             except Exception as e:
                 # メモリ更新失敗は処理を継続

@@ -19,6 +19,8 @@ try:
     PROMETHEUS_AVAILABLE = True
 except ImportError:
     PROMETHEUS_AVAILABLE = False
+    # Define dummy classes for type hints when prometheus_client is not available
+    Counter = Histogram = Gauge = Summary = CollectorRegistry = generate_latest = None
 
 
 class CircuitBreakerState(Enum):

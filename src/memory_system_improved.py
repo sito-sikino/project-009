@@ -85,6 +85,9 @@ class ImprovedDiscordMemorySystem:
                  redis_url: str = None, 
                  postgres_url: str = None,
                  gemini_api_key: str = None):
+        # ロギング設定（最初に初期化）
+        self.logger = self._setup_logging()
+        
         # 環境変数から安全に取得
         self.redis_url = redis_url or os.getenv('REDIS_URL', 'redis://localhost:6379')
         self.postgres_url = self._sanitize_postgres_url(
@@ -93,7 +96,7 @@ class ImprovedDiscordMemorySystem:
         
         # Google Embeddings設定
         self.embeddings_client = GoogleGenerativeAIEmbeddings(
-            model="text-embedding-004",
+            model="models/text-embedding-004",
             google_api_key=gemini_api_key or os.getenv('GEMINI_API_KEY'),
             task_type="RETRIEVAL_DOCUMENT"
         )
@@ -106,7 +109,7 @@ class ImprovedDiscordMemorySystem:
         # 設定
         self.hot_memory_limit = 20
         self.hot_memory_ttl = 86400
-        self.embedding_model = "text-embedding-004"
+        self.embedding_model = "models/text-embedding-004"
         self.similarity_threshold = 0.7
         self.max_cold_results = 10
         
@@ -115,9 +118,6 @@ class ImprovedDiscordMemorySystem:
         
         # ヘルスステータス
         self.health_status = HealthStatus()
-        
-        # ロギング設定
-        self.logger = self._setup_logging()
     
     def _sanitize_postgres_url(self, url: str) -> str:
         """PostgreSQL URL サニタイズ（パスワード隠蔽）"""
@@ -269,30 +269,11 @@ class ImprovedDiscordMemorySystem:
             raise RedisConnectionError(f"Redis read failed: {e}")
     
     async def load_cold_memory(self, query: str, channel_id: str = None) -> List[Dict[str, Any]]:
-        """Cold Memory検索（改善版）"""
+        """Cold Memory検索（一時的に無効化）"""
         try:
-            if not self.postgres_pool:
-                if not await self.initialize():
-                    return []
-            
-            # Embedding生成（レート制限付き）
-            query_embedding = await self.generate_embedding_with_rate_limit(query)
-            if not query_embedding:
-                return []
-            
-            # セマンティック検索実行（トランザクション内）
-            async with self.postgres_pool.acquire() as conn:
-                async with conn.transaction():
-                    if channel_id:
-                        results = await conn.fetch("""
-                            SELECT * FROM find_similar_memories($1, $2, $3, $4)
-                        """, query_embedding, self.similarity_threshold, 
-                            self.max_cold_results, int(channel_id))
-                    else:
-                        results = await conn.fetch("""
-                            SELECT * FROM find_similar_memories($1, $2, $3, NULL)
-                        """, query_embedding, self.similarity_threshold, 
-                            self.max_cold_results)
+            # TEMPORARY FIX: PostgreSQL関数未作成のため一時的に無効化
+            self.logger.info("🔧 Cold Memory temporarily disabled (PostgreSQL function missing)")
+            return []
             
             # 結果を辞書形式に変換
             cold_memory = []

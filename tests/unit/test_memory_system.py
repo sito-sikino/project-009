@@ -98,15 +98,18 @@ class TestDiscordMemorySystem:
         mock_pool = AsyncMock()
         mock_conn = AsyncMock()
         mock_conn.fetchval = AsyncMock(return_value=1)
-        mock_conn.fetch = AsyncMock(return_value=[])
+        mock_conn.fetch = AsyncMock(return_value=[{"extname": "vector"}])
         mock_conn.execute = AsyncMock()
         
-        # Context manager設定
-        async def mock_acquire():
-            return mock_conn
+        # Context manager設定 - 正しい実装
+        def create_context_manager():
+            mock_context_manager = AsyncMock()
+            mock_context_manager.__aenter__ = AsyncMock(return_value=mock_conn)
+            mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+            return mock_context_manager
         
-        mock_pool.acquire.return_value.__aenter__ = mock_acquire
-        mock_pool.acquire.return_value.__aexit__ = AsyncMock(return_value=None)
+        # acquireは非同期関数ではないので、MagicMockを使用
+        mock_pool.acquire = MagicMock(side_effect=create_context_manager)
         mock_pool.close = AsyncMock()
         return mock_pool
     
@@ -130,14 +133,12 @@ class TestDiscordMemorySystem:
     @pytest.mark.asyncio
     async def test_memory_system_initialize_success(self, memory_system, mock_redis_client, mock_postgres_pool):
         """Memory System初期化成功テスト"""
-        # ARRANGE: モッククライアント設定
+        # ARRANGE: モッククライアント設定  
         with patch('redis.asyncio.from_url', return_value=mock_redis_client), \
-             patch('asyncpg.create_pool', return_value=mock_postgres_pool):
+             patch('asyncpg.create_pool', new_callable=AsyncMock, return_value=mock_postgres_pool), \
+             patch('langchain_google_genai.GoogleGenerativeAIEmbeddings'):
             
-            # PostgreSQL拡張確認モック
-            mock_conn = AsyncMock()
-            mock_conn.fetch = AsyncMock(return_value=[{"extname": "vector"}])
-            mock_postgres_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+            # PostgreSQL拡張確認モック - fixtureでsetupしたmock_connを使用
             
             # ACT
             result = await memory_system.initialize()
@@ -209,7 +210,11 @@ class TestDiscordMemorySystem:
                     'importance_score': 0.9
                 }
             ])
-            mock_postgres_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+            # Use the same context manager pattern as the fixture
+            mock_context_manager = AsyncMock()
+            mock_context_manager.__aenter__ = AsyncMock(return_value=mock_conn)
+            mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+            mock_postgres_pool.acquire = MagicMock(return_value=mock_context_manager)
             
             # ACT
             result = await memory_system.load_cold_memory("検索クエリ")
@@ -240,7 +245,10 @@ class TestDiscordMemorySystem:
             # Mock PostgreSQL
             mock_conn = AsyncMock()
             mock_conn.execute = AsyncMock()
-            mock_postgres_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+            mock_context_manager = AsyncMock()
+            mock_context_manager.__aenter__ = AsyncMock(return_value=mock_conn)
+            mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+            mock_postgres_pool.acquire = MagicMock(return_value=mock_context_manager)
             
             # ACT
             result = await memory_system.update_memory(conversation_data)
@@ -313,7 +321,10 @@ class TestDiscordMemorySystem:
         # Mock PostgreSQL統計
         mock_conn = AsyncMock()
         mock_conn.fetchval.side_effect = [100, 5]  # memories, summaries
-        mock_postgres_pool.acquire.return_value.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_context_manager = AsyncMock()
+        mock_context_manager.__aenter__ = AsyncMock(return_value=mock_conn)
+        mock_context_manager.__aexit__ = AsyncMock(return_value=None)
+        mock_postgres_pool.acquire = MagicMock(return_value=mock_context_manager)
         
         # ACT
         stats = await memory_system.get_memory_stats()
@@ -363,14 +374,14 @@ class TestMemorySystemIntegration:
     """Memory System統合テスト"""
     
     @pytest.mark.asyncio
-    async def test_hot_to_cold_memory_integration(self, memory_system):
+    async def test_hot_to_cold_memory_integration(self):
         """Hot→Cold Memory統合テスト"""
         # TODO: 実際のRedis/PostgreSQL接続が必要
         # 本テストは docker-compose up 環境でのみ実行
         pytest.skip("Requires actual Redis/PostgreSQL containers")
     
     @pytest.mark.asyncio
-    async def test_embedding_search_integration(self, memory_system):
+    async def test_embedding_search_integration(self):
         """Embedding検索統合テスト"""
         # TODO: Gemini API Key必要
         pytest.skip("Requires GEMINI_API_KEY for text-embedding-004")
