@@ -9,7 +9,7 @@ import sys
 import asyncio
 import logging
 import time
-from typing import Dict, List
+from typing import Dict, List, Optional
 import signal
 from dotenv import load_dotenv
 
@@ -30,6 +30,7 @@ from src.monitoring import performance_monitor, monitor_performance
 from src.health_api import setup_health_monitoring
 from src.daily_workflow import DailyWorkflowSystem
 from src.autonomous_speech import AutonomousSpeechSystem
+from datetime import datetime
 
 
 class DiscordMultiAgentSystem:
@@ -129,20 +130,23 @@ class DiscordMultiAgentSystem:
         self.message_router = MessageRouter(bots=self.bots)
         self.logger.info("✅ Message Router initialized")
         
-        # Daily Workflow System
-        channel_ids = {
+        # Channel IDs（クラス変数として保存）
+        self.channel_ids = {
             "command_center": int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '1383963657137946664')),
             "lounge": int(os.getenv('LOUNGE_CHANNEL_ID', '1383966355962990653')),
             "development": int(os.getenv('DEVELOPMENT_CHANNEL_ID', '1383968516033478727')),
             "creation": int(os.getenv('CREATION_CHANNEL_ID', '1383981653046726728'))
         }
-        self.daily_workflow = DailyWorkflowSystem(channel_ids)
+        
+        # Daily Workflow System
+        self.daily_workflow = DailyWorkflowSystem(self.channel_ids, self.memory_system, self.priority_queue)
         self.logger.info("✅ Daily Workflow System initialized")
         
-        # Autonomous Speech System
+        # Autonomous Speech System (統合版)
         environment = os.getenv('ENVIRONMENT', 'production')
-        self.autonomous_speech = AutonomousSpeechSystem(channel_ids, environment)
-        self.logger.info("✅ Autonomous Speech System initialized")
+        from src.autonomous_speech import AutonomousSpeechSystem
+        self.autonomous_speech = AutonomousSpeechSystem(self.channel_ids, environment, self.daily_workflow, self.priority_queue)
+        self.logger.info("✅ 統合版 Autonomous Speech System initialized")
         
         self.logger.info("🚀 All components initialized successfully")
     
@@ -159,24 +163,59 @@ class DiscordMultiAgentSystem:
                 
                 self.logger.info(f"Processing message: {message_data['message'].content[:50]}...")
                 
-                # ユーザー活動通知（会話中断回避）
-                if hasattr(self, 'autonomous_speech') and not message_data['message'].author.bot:
-                    self.autonomous_speech.notify_user_activity(str(message_data['message'].channel.id))
+                # 重複防止：ユーザー応答処理中はロック設定
+                if hasattr(self, 'autonomous_speech'):
+                    self.autonomous_speech.system_is_currently_speaking = True
                 
-                # LangGraph Supervisorで処理（監視付き）
-                initial_state = {
-                    'messages': [{'role': 'user', 'content': message_data['message'].content}],
-                    'channel_id': str(message_data['message'].channel.id),
-                    'user_id': str(message_data['message'].author.id),
-                    'message_id': str(message_data['message'].id)
-                }
+                # タスクコマンド処理（/task commit, /task change）
+                if not message_data['message'].author.bot and message_data['message'].content.startswith('/task '):
+                    command_response = await self._process_task_command(message_data['message'])
+                    if command_response:
+                        # Spectraがcommand_centerでコマンド結果を返信
+                        supervisor_result = {
+                            'selected_agent': 'spectra',
+                            'response_content': command_response,
+                            'channel_id': str(self.channel_ids.get('command_center', message_data['message'].channel.id)),
+                            'message_id': str(message_data['message'].id),
+                            'command_response': True
+                        }
+                        
+                        await performance_monitor.record_operation(
+                            "command_processing",
+                            "task_command",
+                            self.message_router.route_message,
+                            supervisor_result
+                        )
+                        
+                        self.logger.info(f"✅ Task command processed: {message_data['message'].content[:50]}...")
+                        continue
                 
-                supervisor_result = await performance_monitor.record_operation(
-                    "message_processing", 
-                    "supervisor",
-                    self.supervisor.process_message,
-                    initial_state
-                )
+                # 自発発言の場合は直接指定エージェントに配信
+                if hasattr(message_data['message'], 'autonomous_speech') and message_data['message'].autonomous_speech:
+                    target_agent = message_data['message'].target_agent
+                    supervisor_result = {
+                        'selected_agent': target_agent,
+                        'response_content': message_data['message'].content,
+                        'channel_id': str(message_data['message'].channel.id),
+                        'message_id': str(message_data['message'].id),
+                        'autonomous_speech': True
+                    }
+                    self.logger.info(f"🎙️ 自発発言処理: {target_agent} -> #{message_data['message'].channel.name}")
+                else:
+                    # 通常のユーザーメッセージの場合はLangGraph Supervisorで処理
+                    initial_state = {
+                        'messages': [{'role': 'user', 'content': message_data['message'].content}],
+                        'channel_id': str(message_data['message'].channel.id),
+                        'user_id': str(message_data['message'].author.id),
+                        'message_id': str(message_data['message'].id)
+                    }
+                    
+                    supervisor_result = await performance_monitor.record_operation(
+                        "message_processing", 
+                        "supervisor",
+                        self.supervisor.process_message,
+                        initial_state
+                    )
                 
                 # Message Routerで配信（監視付き）
                 await performance_monitor.record_operation(
@@ -206,6 +245,10 @@ class DiscordMultiAgentSystem:
                     component="message_loop"
                 )
                 await asyncio.sleep(1)  # エラー時の短い待機
+            finally:
+                # ロック解除（メッセージ処理完了）
+                if hasattr(self, 'autonomous_speech'):
+                    self.autonomous_speech.system_is_currently_speaking = False
     
     async def start_clients(self):
         """Start Discord clients with sequential connection approach"""
@@ -382,11 +425,46 @@ class DiscordMultiAgentSystem:
         
         self.logger.info("✅ System shutdown completed")
     
+    async def _process_task_command(self, message) -> Optional[str]:
+        """タスクコマンド処理"""
+        try:
+            content = message.content.strip()
+            
+            # コマンド形式: /task commit [channel] "[task]" または /task change [channel] "[task]"
+            import re
+            pattern = r'/task\s+(commit|change)\s+([a-zA-Z_]+)\s+"([^"]+)"'
+            match = re.match(pattern, content)
+            
+            if not match:
+                return "❌ **コマンド形式エラー**\n\n正しい形式: `/task commit [channel] \"[task]\"` または `/task change [channel] \"[task]\"`"
+            
+            command, channel, task = match.groups()
+            user_id = str(message.author.id)
+            
+            # チャンネル名の検証
+            valid_channels = ['development', 'creation', 'command_center', 'lounge']
+            if channel not in valid_channels:
+                return f"❌ **無効なチャンネル**: {channel}\n\n有効なチャンネル: {', '.join(valid_channels)}"
+            
+            # DailyWorkflowSystemに処理を委譲
+            response = await self.daily_workflow.process_task_command(command, channel, task, user_id)
+            
+            return response
+            
+        except Exception as e:
+            self.logger.error(f"❌ Task command processing error: {e}")
+            return f"❌ **タスクコマンド処理中にエラーが発生しました**: {str(e)}"
+    
     def setup_signal_handlers(self):
         """シグナルハンドラー設定"""
         def signal_handler(signum, frame):
             self.logger.info(f"Received signal {signum}")
             self.running = False
+            # サブシステムも即座に停止フラグを設定
+            if hasattr(self, 'daily_workflow'):
+                self.daily_workflow.is_running = False
+            if hasattr(self, 'autonomous_speech'):
+                self.autonomous_speech.is_running = False
         
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)

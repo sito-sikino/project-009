@@ -4,17 +4,30 @@
 
 ## 📖 プロジェクト概要
 
-**Project 009: Discord Multi-Agent System**
+**Project 009: Discord Multi-Agent Workflow System**
 
-統合受信・個別送信型アーキテクチャによるDiscord Multi-Agent Systemの実装。
-LangGraph Supervisor PatternとGemini 2.0 Flash APIを活用し、3体のAIエージェント（Spectra、LynQ、Paz）が協調動作するシステム。
+統合受信・個別送信型アーキテクチャによるタスク駆動型Discord Multi-Agent Systemの実装。
+LangGraph Supervisor PatternとGemini 2.0 Flash APIを活用し、3体のAIエージェント（Spectra、LynQ、Paz）が日次ワークフローに基づいて協調動作するシステム。
 
 ### 主な特徴
 - **統合受信**: 1つのボットがメッセージを一元管理
 - **個別送信**: 3体のエージェントが独自のアイデンティティで応答
+- **日次ワークフロー**: 自動日報生成・会議・タスク駆動実務・自由時間の4フェーズ
+- **タスク管理**: `/task commit`/`/task change`コマンドによる動的タスク制御
 - **LangGraph統合**: Supervisor Patternによる高度なオーケストレーション
 - **2層メモリ**: Redis（Hot Memory）+ PostgreSQL（Cold Memory）
-- **API効率化**: 重複処理排除により50%のリソース削減
+- **チャンネル特化**: development（LynQ）, creation（Paz）の専門性重視
+
+### 日次スケジュール
+- **00:00-06:59 REST**: 自発発言無効、ユーザー応答は全チャンネル有効
+- **07:00 Report+Meeting**: 日報自動生成（Discord Embed）+ 会議開始
+- **07:01-19:59 MEETING/WORK**: lounge以外で自発発言有効、`/task commit [channel] "[task]"`で実務モード切り替え
+- **20:00-23:59 CONCLUSION**: loungeのみで自発発言有効、全チャンネルでユーザー応答有効
+
+### エージェント役割
+- **Spectra**: ワークフロー管理、全チャンネル均等参加
+- **LynQ**: development重視（50%）、ロジカル思考・技術特化
+- **Paz**: creation重視（50%）、発散思考・創作特化
 
 ## 🚨 【最優先】Claude Code 動作制御
 
@@ -437,33 +450,21 @@ async def daily_memory_migration():
 - ユーザー不在時も議論が停止せず、継続的に進展
 - シーケンシャル進行: 常に1つのチャンネルのみアクティブ（同時進行なし）
 
-## 📋 実装技術仕様
+## 📋 実装済み技術仕様
 
 ### 🛠️ 技術スタック
-- **AI Engine**: Google Gemini 2.0 Flash API (モデル名: gemini-2.0-flash)
-- **Framework**: LangChain v0.3.25 + LangGraph v0.4.8
-- **Discord**: Discord.py + 統合受信・個別送信型アーキテクチャ
-  - 受信専用Bot × 1（メッセージ一元管理）
-  - 送信専用Bot × 3（Spectra、LynQ、Paz個別出力）
-- **Database**: PostgreSQL + pgvector + Redis
-- **Environment**: Python 3.9+ + venv + WSL2 Ubuntu
+- **AI Engine**: Google Gemini 2.0 Flash API
+- **Framework**: LangChain v0.3.25 + LangGraph v0.4.8  
+- **Discord**: Discord.py + 統合受信・個別送信型アーキテクチャ (✅ 実装完了)
+- **Database**: PostgreSQL + pgvector + Redis (✅ 実装完了)
+- **Environment**: Python 3.9+ + venv
 
-### ⚙️ API制限・環境設定
-- **Gemini API制限**: 15RPM/1,500RPD（無料枠）
-- **環境別間隔制御**:
-  - test: 1秒間隔（高速テスト）
-  - development: 2秒間隔（快適開発）
-  - production: 4秒間隔（15RPM制限対応）
-- **優先度制御**: メンション・通常発言（無制限待機） > 自発発言（制限時即諦め）
-
-### 🧠 メモリシステム仕様
-- **Hot Memory (Redis)**: 当日記憶、0.1秒アクセス、07:00リセット
-- **Cold Memory (PostgreSQL)**: 長期記憶、ベクトル検索3秒、永続保存
-- **アクセス方式**: 常時両方読み込み（判定ロジックなし）
-
-### 🤖 LangGraph実装仕様（統合受信・個別送信型アーキテクチャ）
-
-実装詳細は下記「📋 詳細実装計画」セクションで詳述。
+### ⚙️ 運用設定
+- **自発発言システム**: AutonomousSpeechSystem (Context-Aware版) (✅ 稼働中)
+- **環境別確率**: test: 100%, production: 33%
+- **フェーズ制御**: REST無効, MEETING(command-center中心), CONCLUSION(loungeのみ)
+- **チャンネル頻度**: LynQ→development 50%, Paz→creation 50%
+- **文脈判定**: ConversationDetector削除、LangGraph統合判定採用
 
 ### 📁 Redis設計仕様
 ```python
@@ -779,164 +780,45 @@ docker-compose down
 
 ---
 
-## 📋 詳細実装計画（統合受信・個別送信型アーキテクチャ）
+## 📊 プロジェクト完了状況
 
-### 📌 **Phase 1: 基本環境・統合受信実装** (1-2週間)
+### ✅ **実装完了済み** 
+- **Phase 1-3**: 統合受信・個別送信型アーキテクチャ完全実装
+- **Phase 4**: 2層メモリシステム (Redis + PostgreSQL) 完全実装  
+- **Phase 5**: 簡素化版自発発言システム完全実装・稼働中
 
-#### 1.1 環境セットアップ (1-2日)
-上記「🚀 セットアップ」セクション参照
+### 🎯 **現在の状況**: Discord Multi-Agent System **基本機能完全稼働中**
 
-#### 1.2 設定管理実装 (1日)
-環境変数設定は上記「🗄️ 環境変数（.env）」セクション参照
+**稼働中システム**:
+- ✅ 統合受信・個別送信 (Reception + Spectra/LynQ/Paz) 
+- ✅ LangGraph Supervisor Pattern 
+- ✅ 2層メモリシステム (Hot/Cold Memory)
+- ✅ SimplifiedAutonomousSpeechSystem (AC-016 簡素化版)
+- ✅ Daily Workflow System
 
-#### 1.3 統合受信クライアント実装 (3-4日)
+### 🔄 **次のステップ選択肢**
+
+#### Option A: 現在のまま運用継続 ✅ **推奨**
+**判定**: AC-016 簡素化版が基本要件を満たし安定稼働中
+- 現在のシステムで十分な機能性を確保
+- 自発発言・フェーズ制御・エージェント頻度すべて正常動作
+- 追加開発リスクなし
+
+#### Option B: 統合版へアップグレード 🔄
+**条件**: AC-015統合日次ワークフロー機能が必要な場合
+- `AutonomousSpeechSystem` (統合版) への移行
+- `/task commit`コマンド連携機能追加
+- 日報生成システム統合
+- 実務モード時のシステムプロンプト制御
+
+**⚡ アップグレード必要作業**:
 ```python
-# src/discord_clients.py
-class ReceptionClient(discord.Client):
-    async def setup_hook(self):
-        self.message_queue = asyncio.PriorityQueue()
-        
-    async def on_message(self, message):
-        priority = self._determine_priority(message)
-        await self.message_queue.put((priority, message))
+# main.py 1行変更のみ
+# from src.autonomous_speech import SimplifiedAutonomousSpeechSystem
+from src.autonomous_speech import AutonomousSpeechSystem
+# self.autonomous_speech = SimplifiedAutonomousSpeechSystem(...)
+self.autonomous_speech = AutonomousSpeechSystem(channel_ids, environment, self.daily_workflow)
 ```
-
-#### 1.4 テスト・検証 (1-2日)
-- 基本接続テスト、メッセージ受信確認、エラーハンドリング検証
-
-### 📌 **Phase 2: LangGraph Supervisor実装** (2-3週間)
-
-#### 2.1 LangGraph基盤構築 (3-4日)
-```python
-# src/langgraph_supervisor.py
-from langgraph.graph import StateGraph, MessagesState
-from langgraph.checkpoint.redis.aio import AsyncRedisSaver
-
-class AgentSupervisor:
-    def __init__(self):
-        self.checkpointer = AsyncRedisSaver.from_conn_string(REDIS_URL)
-        self.graph = self._build_graph()
-```
-
-#### 2.2 4ノードワークフロー実装 (5-7日)
-```python
-# ノード実装
-async def load_hot_memory_node(state: MessagesState):
-    # Redis から直近20件の会話履歴取得
-    
-async def load_cold_memory_node(state: MessagesState):
-    # PostgreSQL でベクトル検索、関連記憶5件取得
-    
-async def unified_select_generate_node(state: MessagesState):
-    # Gemini 2.0 Flash でエージェント選択+応答生成
-    
-async def update_memory_node(state: MessagesState):
-    # Redis に新しい会話データ保存
-```
-
-#### 2.3 Gemini API統合 (2-3日)
-```python
-# src/gemini_client.py
-class GeminiClient:
-    async def unified_agent_selection(self, context: dict) -> dict:
-        # API制限(15RPM)対応の指数バックオフ実装
-        # エージェント選択+応答生成の統合処理
-```
-
-#### 2.4 テスト・最適化 (2-3日)
-- 単体テスト、統合テスト、パフォーマンス測定
-
-### 📌 **Phase 3: 個別送信Bot実装** (1-2週間)
-
-#### 3.1 送信専用Botクラス実装 (3-4日)
-```python
-# src/output_bots.py
-class OutputBot:
-    def __init__(self, agent_name: str, token: str):
-        intents = discord.Intents(guilds=True, messages=True)
-        self.client = discord.Client(intents=intents)
-        
-    async def process_output_queue(self):
-        # Redis から agent_name_output_queue を監視
-        # メッセージ送信処理
-```
-
-#### 3.2 ルーティングシステム (2-3日)
-```python
-# src/message_router.py
-class MessageRouter:
-    async def route_response(self, agent_name: str, content: str, channel_id: int):
-        await self.redis.lpush(f"{agent_name}_output_queue", {
-            "content": content,
-            "channel_id": channel_id,
-            "timestamp": datetime.now()
-        })
-```
-
-#### 3.3 統合フロー実装 (2-3日)
-- Reception → LangGraph → Output の完全フロー構築
-- エラー時のフォールバック機構実装
-
-### 📌 **Phase 4: 2層メモリシステム統合** (2-3週間)
-
-#### 4.1 Redis Hot Memory実装 (4-5日)
-```python
-# src/memory_system.py
-class HotMemory:
-    async def store_conversation(self, channel_id: str, message_data: dict):
-        # 20件制限でRolling更新
-        
-    async def get_context(self, channel_id: str, limit: int = 20) -> List[dict]:
-        # 会話履歴取得、JSON形式で返却
-```
-
-#### 4.2 PostgreSQL Cold Memory実装 (6-8日)
-```python
-class ColdMemory:
-    async def store_daily_summary(self, date: str, summary_data: dict):
-        # pgvector でベクトル化保存
-        
-    async def semantic_search(self, query: str, limit: int = 5) -> List[dict]:
-        # embedding生成→類似度検索→結果返却
-```
-
-#### 4.3 ベクトル検索システム (3-4日)
-- text-embedding-004 統合、検索精度最適化
-
-### 📌 **Phase 5: 高度機能・運用システム** (3-4週間)
-
-#### 5.1 自発的発言システム (5-7日)
-```python
-# src/autonomous_speech.py
-class AutonomousSpeech:
-    async def tick_scheduler(self):
-        # 5分間隔で確率判定(本番33%、テスト100%)
-        
-    async def generate_autonomous_message(self, channel_id: str):
-        # LangGraph経由で自発的メッセージ生成
-```
-
-#### 5.2 日次ワークフロー (4-5日)
-```python
-# src/daily_workflow.py
-class DailyWorkflow:
-    async def morning_meeting(self):  # 07:00
-    async def work_session(self):     # 運用時間
-    async def evening_lounge(self):   # 20:00
-    async def system_rest(self):      # 00:00
-```
-
-#### 5.3 運用監視・テスト (7-10日)
-- 統合テスト、負荷テスト、24時間連続稼働テスト
-- ログ監視、アラート設定、パフォーマンス最適化
-
-### 🎯 **実装目標**
-- **責務明確化**: 受信・処理・送信の完全分離
-- **リソース効率**: 重複処理排除で50%削減
-- **ユーザー体験**: 3体の独立したボットアイデンティティ維持
-- **拡張性**: エージェント追加・変更の容易性確保
-
-**開始予定**: Phase 1: 基本環境・統合受信実装
 
 ---
 

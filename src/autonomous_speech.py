@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 """
-Autonomous Speech System - 5分間隔自発発言システム
+Autonomous Speech System - Workflow統合型自発発言システム（LLM統合版）
 
 AC-016: Autonomous Speech System の実装
-- 5-minute tick-based scheduling
-- Environment-specific probability (test: 100%, prod: 33%)
-- Channel-specific agent selection
-- Conversation interruption avoidance
-- Agent personality consistency
+- Daily Workflow統合：フェーズ別行動制御
+- tick-based scheduling（フェーズ依存）
+- LLM統合型エージェント選択・メッセージ生成
+- 環境別確率制御 (test: 100%, prod: 33%)
 """
 import asyncio
 import logging
@@ -18,6 +17,16 @@ import json
 from dataclasses import dataclass
 from enum import Enum
 import os
+
+# Daily Workflow統合用import
+try:
+    from .daily_workflow import WorkflowPhase
+except ImportError:
+    # Fallback for standalone execution
+    class WorkflowPhase(Enum):
+        STANDBY = "standby"
+        ACTIVE = "active"
+        FREE = "free"
 
 logger = logging.getLogger(__name__)
 
@@ -43,47 +52,52 @@ class SpeechEvent:
     timestamp: datetime
     probability_used: float
 
-class ConversationDetector:
-    """会話検知システム"""
-    
-    def __init__(self, silence_threshold_minutes: int = 10):
-        self.silence_threshold = timedelta(minutes=silence_threshold_minutes)
-        self.last_user_activity: Dict[str, datetime] = {}
-        
-    def update_user_activity(self, channel_id: str, timestamp: datetime):
-        """ユーザー活動を記録"""
-        self.last_user_activity[channel_id] = timestamp
-        
-    def is_conversation_active(self, channel_id: str) -> bool:
-        """会話がアクティブかチェック"""
-        if channel_id not in self.last_user_activity:
-            return False
-            
-        last_activity = self.last_user_activity[channel_id]
-        time_since_activity = datetime.now() - last_activity
-        
-        return time_since_activity < self.silence_threshold
-
 class AgentPersonalityGenerator:
-    """エージェント個性メッセージ生成"""
+    """エージェント個性メッセージ生成（参考データ）"""
     
-    SPECTRA_MESSAGES = [
+    # 会議モード用メッセージ（/task commitトリガーなし）
+    SPECTRA_MEETING_MESSAGES = [
+        "💼 **会議進行** 本日の議題について話し合いましょう。何かご提案がございますか？",
+        "📋 **アジェンダ確認** 今日検討すべき課題や目標はありますか？一緒に整理してみましょう。",
+        "🤝 **意見交換** チームの皆さんのお考えやアイデアをお聞かせください。",
+        "📊 **状況共有** 現在の状況や進捗について情報を共有しませんか？",
+        "🎯 **方針検討** 今後の方向性について一緒に考えてみましょう。何かご意見はありますか？"
+    ]
+    
+    LYNQ_MEETING_MESSAGES = [
+        "🔍 **技術的議論** 技術面での課題や検討事項があれば議論しましょう。",
+        "⚙️ **アーキテクチャ相談** システム設計について相談したいことはありませんか？",
+        "📋 **技術要件整理** 実装に向けた技術要件を整理しませんか？",
+        "🧠 **技術知見共有** 最近学んだ技術や手法があれば共有してください。",
+        "💡 **解決策検討** 技術的な課題の解決策を一緒に考えてみましょう。"
+    ]
+    
+    PAZ_MEETING_MESSAGES = [
+        "✨ **創造的議論** 新しいアイデアやアプローチについて話し合いませんか？",
+        "🎨 **デザイン相談** UIやUXについてご相談がありましたらお聞かせください。",
+        "💭 **ブレインストーミング** 自由な発想でアイデアを出し合いませんか？",
+        "🌟 **創作企画** 何か面白い企画やプロジェクトのアイデアはありませんか？",
+        "🎪 **イノベーション** 従来とは違うアプローチを考えてみませんか？"
+    ]
+    
+    # 実務モード用メッセージ（/task commit実行後）
+    SPECTRA_WORK_MESSAGES = [
         "💼 **進捗確認** 皆さん、今日のタスクの調子はいかがですか？何かサポートが必要でしたらお声かけください！",
         "📊 **リソース状況チェック** プロジェクトのリソース配分は適切でしょうか？効率化のご提案があれば喜んでお手伝いします。",
         "🎯 **目標達成サポート** 今週の目標に向けて順調に進んでいますか？調整が必要な点があれば一緒に検討しましょう。",
         "🤝 **チーム連携促進** 各部門間の情報共有はスムーズですか？コミュニケーションの改善点があれば教えてください。",
         "📋 **タスク優先順位** 現在のタスクの優先順位は適切でしょうか？再調整が必要でしたらご相談ください。"
-    ],
+    ]
     
-    LYNQ_MESSAGES = [
+    LYNQ_WORK_MESSAGES = [
         "🔍 **技術的検証** 最近のシステム実装で気になる点はありませんか？パフォーマンスやセキュリティの観点から確認しましょう。",
         "⚙️ **アーキテクチャ最適化** 現在の設計で改善できる部分があれば、一緒に分析してみませんか？",
         "🧪 **テスト戦略** 実装したコードのテストカバレッジは十分でしょうか？品質保証の観点から検討してみましょう。",
         "📈 **メトリクス分析** システムのパフォーマンス指標を確認しましょう。ボトルネックや改善点はありませんか？",
         "🔧 **実装効率化** 開発プロセスで自動化できる部分はありませんか？ツールやワークフローの改善を検討しましょう。"
-    ],
+    ]
     
-    PAZ_MESSAGES = [
+    PAZ_WORK_MESSAGES = [
         "✨ **創造的インスピレーション** 新しいアイデアが浮かんでいませんか？どんな小さな閃きでも大歓迎です！",
         "🎨 **アート的発想** 今日は何か美しいものや面白いものに出会いましたか？創造性を刺激する体験を共有しませんか？",
         "💡 **ブレインストーミング** 解決が困難な課題があれば、一緒に発散的思考で新しい角度から考えてみましょう！",
@@ -93,11 +107,30 @@ class AgentPersonalityGenerator:
 
     @classmethod
     def get_random_message(cls, agent: str) -> str:
-        """エージェント別ランダムメッセージ取得"""
+        """エージェント別ランダムメッセージ取得（従来互換性のため実務モード）"""
+        return cls.get_work_mode_message(agent)
+    
+    @classmethod
+    def get_meeting_message(cls, agent: str) -> str:
+        """会議モード専用メッセージ取得"""
         messages_map = {
-            "spectra": cls.SPECTRA_MESSAGES,
-            "lynq": cls.LYNQ_MESSAGES,
-            "paz": cls.PAZ_MESSAGES
+            "spectra": cls.SPECTRA_MEETING_MESSAGES,
+            "lynq": cls.LYNQ_MEETING_MESSAGES,
+            "paz": cls.PAZ_MEETING_MESSAGES
+        }
+        
+        if agent not in messages_map:
+            return "🤖 **会議進行** 皆さんのご意見をお聞かせください。"
+            
+        return random.choice(messages_map[agent])
+    
+    @classmethod
+    def get_work_mode_message(cls, agent: str) -> str:
+        """実務モード専用メッセージ取得"""
+        messages_map = {
+            "spectra": cls.SPECTRA_WORK_MESSAGES,
+            "lynq": cls.LYNQ_WORK_MESSAGES,
+            "paz": cls.PAZ_WORK_MESSAGES
         }
         
         if agent not in messages_map:
@@ -106,41 +139,39 @@ class AgentPersonalityGenerator:
         return random.choice(messages_map[agent])
 
 class AutonomousSpeechSystem:
-    """5分間隔自発発言システム"""
+    """LLM統合型自発発言システム - シンプル化版"""
     
-    def __init__(self, channel_ids: Dict[str, int], environment: str = "production"):
+    def __init__(self, channel_ids: Dict[str, int], environment: str = "production", workflow_system=None, priority_queue=None):
         self.channel_ids = channel_ids
         self.environment = Environment(environment.lower())
+        self.workflow_system = workflow_system
+        self.priority_queue = priority_queue
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
         
-        # 環境別設定（テスト時は頻度上げる）
+        # 環境別設定
         self.speech_probability = self._get_speech_probability()
         self.tick_interval = 10 if self.environment == Environment.TEST else 300  # テスト:10秒, 本番:5分
         
-        # システムコンポーネント
-        self.conversation_detector = ConversationDetector(silence_threshold_minutes=10)
-        self.personality_generator = AgentPersonalityGenerator()
-        
-        # チャンネル別エージェント優先度
-        self.channel_agent_preferences = {
-            ChannelType.COMMAND_CENTER: ["spectra", "lynq", "paz"],  # Spectra優先
-            ChannelType.LOUNGE: ["paz", "spectra", "lynq"],         # Paz優先
-            ChannelType.DEVELOPMENT: ["lynq", "spectra", "paz"],    # LynQ優先
-            ChannelType.CREATION: ["paz", "lynq", "spectra"]        # Paz優先
+        # 前回発言情報（LLMに渡す文脈として使用）
+        self.last_speech_info = {
+            "agent": None,
+            "channel": None,
+            "timestamp": None
         }
         
-        logger.info(f"🎙️ Autonomous Speech System initialized for {self.environment.value}")
+        # メッセージ生成用参考データ
+        self.personality_generator = AgentPersonalityGenerator()
+        
+        logger.info(f"🎙️ LLM統合型 Autonomous Speech System initialized for {self.environment.value}")
         logger.info(f"📊 Speech probability: {self.speech_probability * 100:.0f}%")
+        logger.info(f"⏱️ Tick interval: {self.tick_interval}秒")
+        if workflow_system:
+            logger.info("🔗 Workflow integration enabled")
         
     def _get_speech_probability(self) -> float:
         """環境別発言確率設定"""
-        probability_map = {
-            Environment.TEST: 1.0,        # 100%
-            Environment.DEVELOPMENT: 1.0,  # 100% (開発時はテスト同様)
-            Environment.PRODUCTION: 0.33   # 33%
-        }
-        return probability_map.get(self.environment, 0.33)
+        return 1.0 if self.environment == Environment.TEST else 0.33
         
     async def start(self):
         """自発発言システム開始"""
@@ -167,12 +198,12 @@ class AutonomousSpeechSystem:
         logger.info("⏹️ Autonomous Speech System 停止")
         
     async def _speech_loop(self):
-        """5分間隔発言ループ"""
+        """tick間隔発言ループ"""
         logger.info("🔄 Autonomous speech monitoring loop started")
         
         while self.is_running:
             try:
-                # 5分間隔チェック
+                # tick間隔待機
                 await asyncio.sleep(self.tick_interval)
                 
                 # 確率判定
@@ -186,187 +217,221 @@ class AutonomousSpeechSystem:
                 await asyncio.sleep(60)  # エラー時は1分待機
                 
     async def _execute_autonomous_speech(self):
-        """自発発言実行 - 真の10秒ルール実装"""
+        """LLM統合型自発発言実行"""
         try:
-            # グローバル最後発言時刻チェック
-            if not await self._can_post_autonomous_message():
-                logger.debug("🚫 10秒ルール: まだ前回から10秒経過していません")
-                return
+            # 現在のフェーズ確認
+            current_phase = self._get_current_phase()
             
-            # アクティブでないチャンネルを特定
-            available_channels = self._get_available_channels()
-            
-            if not available_channels:
-                logger.info("💬 All channels have active conversations, skipping autonomous speech")
+            # フェーズ別の発言可否チェック
+            if current_phase == WorkflowPhase.STANDBY:
+                logger.debug("🚫 STANDBY期間中のため自発発言をスキップ")
                 return
                 
-            # チャンネル選択（ランダム）
-            selected_channel = random.choice(available_channels)
+            # 利用可能なチャンネル取得
+            available_channel = self._get_available_channel(current_phase)
+            if not available_channel:
+                logger.debug("🚫 利用可能なチャンネルがないため自発発言をスキップ")
+                return
+                
+            # ワークフローイベント実行中チェック
+            if self._is_workflow_event_active():
+                logger.debug("⏰ ワークフローイベント実行中のため自発発言をスキップ")
+                return
+                
+            # LLM統合メッセージ生成（エージェント選択も含む）
+            speech_data = await self._generate_llm_integrated_speech(available_channel, current_phase)
+            if not speech_data:
+                logger.warning("⚠️ LLM統合メッセージ生成に失敗")
+                return
+                
+            # メッセージキューに追加
+            await self._queue_autonomous_message(
+                channel=available_channel,
+                agent=speech_data["agent"],
+                message=speech_data["message"]
+            )
             
-            # チャンネル別エージェント選択
-            selected_agent = self._select_agent_for_channel(selected_channel)
+            # 発言完了時刻とチャンネルを記録（agentは既に更新済み）
+            self.last_speech_info["channel"] = available_channel
+            self.last_speech_info["timestamp"] = datetime.now()
             
-            # パーソナリティメッセージ生成
-            message = self.personality_generator.get_random_message(selected_agent)
-            
-            # メッセージキューに追加（グローバルタイムスタンプ更新含む）
-            await self._queue_autonomous_message(selected_channel, selected_agent, message)
-            
-            logger.info(f"🎙️ Autonomous speech executed: {selected_agent} -> #{selected_channel}")
+            logger.info(f"🎙️ LLM統合自発発言実行: {speech_data['agent']} -> #{available_channel}")
             
         except Exception as e:
-            logger.error(f"❌ Autonomous speech execution failed: {e}")
+            logger.error(f"❌ LLM統合自発発言実行失敗: {e}")
             
-    def _get_available_channels(self) -> List[str]:
-        """会話中でないチャンネル一覧取得"""
-        available = []
+    def _get_current_phase(self) -> WorkflowPhase:
+        """現在のワークフローフェーズを取得"""
+        if self.workflow_system:
+            return self.workflow_system.current_phase
         
-        for channel_name, channel_id in self.channel_ids.items():
-            if not self.conversation_detector.is_conversation_active(str(channel_id)):
-                available.append(channel_name)
+        # Fallback: 時刻ベース判定
+        hour = datetime.now().hour
+        if 7 <= hour < 20:
+            return WorkflowPhase.ACTIVE
+        elif hour >= 20:
+            return WorkflowPhase.FREE
+        else:
+            return WorkflowPhase.STANDBY
+            
+    def _get_available_channel(self, phase: WorkflowPhase) -> Optional[str]:
+        """フェーズに応じた利用可能チャンネル取得"""
+        # タスク実行中チェック
+        if self.workflow_system and hasattr(self.workflow_system, 'current_tasks'):
+            active_tasks = self.workflow_system.current_tasks
+            if active_tasks:
+                # タスクチャンネルを優先
+                for task_info in active_tasks.values():
+                    return task_info.get('channel')
+        
+        # フェーズ別デフォルトチャンネル
+        if phase == WorkflowPhase.ACTIVE:
+            return "command_center"
+        elif phase == WorkflowPhase.FREE:
+            return "lounge"
+        
+        return None
+        
+    def _is_workflow_event_active(self) -> bool:
+        """ワークフローイベント実行中かチェック"""
+        if not self.workflow_system:
+            return False
+            
+        # ワークフローイベントの実行時刻周辺（±1分）をチェック
+        current_time = datetime.now()
+        critical_times = [
+            (7, 0),   # Morning meeting
+            (20, 0),  # Work conclusion
+            (0, 0)    # System rest
+        ]
+        
+        for event_hour, event_minute in critical_times:
+            event_time = current_time.replace(hour=event_hour, minute=event_minute, second=0, microsecond=0)
+            time_diff = abs((event_time - current_time).total_seconds())
+            if time_diff <= 60:  # 1分間
+                return True
                 
-        return available
+        return False
         
-    def _select_agent_for_channel(self, channel_name: str) -> str:
-        """チャンネル別エージェント選択"""
-        try:
-            channel_type = ChannelType(channel_name)
-            preferences = self.channel_agent_preferences.get(channel_type, ["spectra", "lynq", "paz"])
-            
-            # 重み付きランダム選択（最優先50%, 2番目30%, 3番目20%）
-            weights = [0.5, 0.3, 0.2]
-            selected_agent = random.choices(preferences, weights=weights)[0]
-            
-            return selected_agent
-            
-        except ValueError:
-            # 未定義チャンネルの場合はランダム
-            return random.choice(["spectra", "lynq", "paz"])
-            
-    async def _can_post_autonomous_message(self) -> bool:
-        """グローバル10秒ルールチェック - 最後の自発発言から10秒経過しているか"""
-        try:
-            with open("message_queue.json", "r", encoding='utf-8') as f:
-                queue_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            return True  # キューファイルがない場合は投稿可能
+    async def _generate_llm_integrated_speech(self, channel: str, phase: WorkflowPhase) -> Optional[Dict[str, str]]:
+        """LLM統合型メッセージ生成（エージェント選択含む）"""
+        # 本実装では実際のLLM（Gemini）を呼び出す代わりに、
+        # システムプロンプトのロジックをコードでシミュレート
         
-        # 最新の自発発言メッセージのタイムスタンプを取得
-        autonomous_messages = [
-            item for item in queue_data 
-            if item.get('event_type') == 'autonomous_speech'
-        ]
+        # アクティブタスクの取得
+        active_tasks = self._get_active_tasks_summary()
+        work_mode = bool(active_tasks != "なし")
         
-        if not autonomous_messages:
-            return True  # 自発発言がない場合は投稿可能
+        # エージェントプール
+        agents = ["spectra", "lynq", "paz"]
         
-        # 最新メッセージのタイムスタンプを取得
-        latest_message = max(autonomous_messages, key=lambda x: x.get('timestamp', '1970-01-01'))
-        latest_timestamp = datetime.fromisoformat(latest_message.get('timestamp', '1970-01-01'))
+        # 前回発言者を優先度下げる（90%削減）
+        agent_weights = {}
+        for agent in agents:
+            if agent == self.last_speech_info.get("agent"):
+                agent_weights[agent] = 0.1
+            else:
+                agent_weights[agent] = 1.0
         
-        # 10秒経過チェック
-        time_since_last = datetime.now() - latest_timestamp
-        return time_since_last >= timedelta(seconds=10)
-
-    async def _queue_autonomous_message(self, channel: str, agent: str, message: str):
-        """自発メッセージをキューに追加 - 真の10秒ルール対応"""
-        # キューファイル読み込み
-        try:
-            with open("message_queue.json", "r", encoding='utf-8') as f:
-                queue_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            queue_data = []
-        
-        # 古い処理済みメッセージを削除（5分以上前）
-        cutoff_time = datetime.now() - timedelta(minutes=5)
-        queue_data = [item for item in queue_data 
-                     if not (item.get('processed', False) 
-                            and item.get('event_type') == 'autonomous_speech'
-                            and datetime.fromisoformat(item.get('timestamp', '1970-01-01')) < cutoff_time)]
-        
-        # キューサイズ制限（最大20件に削減）
-        if len(queue_data) >= 20:
-            logger.warning(f"⚠️ キューサイズ制限に達しているため、自発メッセージ追加をスキップ: {len(queue_data)}件")
-            return
-        
-        # 未処理の自発発言メッセージがあるかチェック
-        unprocessed_autonomous = [
-            item for item in queue_data 
-            if item.get('event_type') == 'autonomous_speech' 
-            and not item.get('processed', False)
-        ]
-        
-        if unprocessed_autonomous:
-            logger.info(f"🚫 未処理自発メッセージが{len(unprocessed_autonomous)}件存在するため、新規追加をスキップ")
-            return
-        
-        queue_item = {
-            'id': f"autonomous_{agent}_{datetime.now().isoformat()}",
-            'content': message,
-            'author': 'AUTONOMOUS_SYSTEM',
-            'author_id': '999999999999999999',  # システム識別ID
-            'channel_id': str(self.channel_ids.get(channel, 0)),
-            'channel_name': channel,
-            'target_agent': agent,
-            'timestamp': datetime.now().isoformat(),
-            'processed': False,
-            'priority': 5,  # 自発発言は最低優先度
-            'event_type': 'autonomous_speech',
-            'speech_probability': self.speech_probability,
-            'global_timing_enforced': True  # 真の10秒ルール適用済みフラグ
+        # チャンネル別の重み付け適用
+        channel_preferences = {
+            "command_center": {"spectra": 0.4, "lynq": 0.3, "paz": 0.3},
+            "development": {"lynq": 0.5, "spectra": 0.25, "paz": 0.25},
+            "creation": {"paz": 0.5, "lynq": 0.25, "spectra": 0.25},
+            "lounge": {"spectra": 0.333, "lynq": 0.333, "paz": 0.334}
         }
         
-        queue_data.append(queue_item)
+        if channel in channel_preferences:
+            for agent in agents:
+                agent_weights[agent] *= channel_preferences[channel].get(agent, 0.333)
         
-        with open("message_queue.json", "w", encoding='utf-8') as f:
-            json.dump(queue_data, f, indent=2, ensure_ascii=False)
+        # 重み付き選択
+        total_weight = sum(agent_weights.values())
+        if total_weight == 0:
+            selected_agent = random.choice(agents)
+        else:
+            normalized_weights = [agent_weights[agent] / total_weight for agent in agents]
+            selected_agent = random.choices(agents, weights=normalized_weights)[0]
+        
+        # 即座にlast_speech_infoを更新（重複防止）
+        self.last_speech_info["agent"] = selected_agent
+        
+        # メッセージ生成
+        if work_mode:
+            # 実務モード
+            message = self.personality_generator.get_work_mode_message(selected_agent)
+        elif phase == WorkflowPhase.ACTIVE:
+            # 会議モード
+            message = self.personality_generator.get_meeting_message(selected_agent)
+        else:
+            # 自由時間
+            message = self.personality_generator.get_random_message(selected_agent)
+        
+        logger.debug(f"🎲 Agent selection: {selected_agent} (prev: {self.last_speech_info.get('agent')})")
+        
+        return {
+            "agent": selected_agent,
+            "message": message
+        }
+        
+    def _get_active_tasks_summary(self) -> str:
+        """アクティブタスクの要約を取得"""
+        if not self.workflow_system or not hasattr(self.workflow_system, 'current_tasks'):
+            return "なし"
             
-        logger.info(f"📝 Autonomous message queued (10s rule enforced): {agent} -> #{channel}")
+        tasks = self.workflow_system.current_tasks
+        if not tasks:
+            return "なし"
+            
+        summaries = []
+        for channel, task_info in tasks.items():
+            summaries.append(f"{channel}: {task_info.get('task', 'Unknown')}")
         
-    def notify_user_activity(self, channel_id: str):
-        """ユーザー活動通知（外部から呼び出し）"""
-        self.conversation_detector.update_user_activity(channel_id, datetime.now())
-        logger.debug(f"👤 User activity detected in channel {channel_id}")
+        return ", ".join(summaries)
         
-    def get_system_status(self) -> Dict:
-        """システム状態取得"""
+    async def _queue_autonomous_message(self, channel: str, agent: str, message: str):
+        """自発発言メッセージをキューに追加"""
+        if not self.priority_queue:
+            logger.warning("Priority queue not available")
+            return
+            
+        # メッセージオブジェクト作成
+        class AutonomousMessage:
+            def __init__(self, content, channel_id, target_agent):
+                self.content = content
+                self.channel = AutonomousChannel(channel_id)
+                self.author = AutonomousAuthor()
+                self.id = f"autonomous_{datetime.now().isoformat()}"
+                self.autonomous_speech = True
+                self.target_agent = target_agent
+                
+        class AutonomousChannel:
+            def __init__(self, channel_id):
+                self.id = channel_id
+                self.name = channel
+                
+        class AutonomousAuthor:
+            def __init__(self):
+                self.bot = True
+                self.id = "000000000000000000"
+        
+        message_data = {
+            'message': AutonomousMessage(message, self.channel_ids.get(channel, 0), agent),
+            'priority': 5,  # 自発発言は低優先度
+            'timestamp': datetime.now()
+        }
+        
+        await self.priority_queue.enqueue(message_data)
+        logger.info(f"📝 Autonomous message queued: {agent} -> #{channel}")
+        
+    def get_status(self) -> Dict:
+        """システム状態を取得"""
         return {
             "is_running": self.is_running,
             "environment": self.environment.value,
             "speech_probability": self.speech_probability,
             "tick_interval_seconds": self.tick_interval,
-            "active_conversations": {
-                channel_id: self.conversation_detector.is_conversation_active(channel_id)
-                for channel_id in map(str, self.channel_ids.values())
-            }
+            "current_phase": self._get_current_phase().value,
+            "last_speech": self.last_speech_info,
+            "active_tasks": self._get_active_tasks_summary()
         }
-
-# システム統合用のファクトリー関数
-def create_autonomous_speech_system(
-    channel_ids: Dict[str, int], 
-    environment: str = None
-) -> AutonomousSpeechSystem:
-    """Autonomous Speech System のインスタンス作成"""
-    if environment is None:
-        environment = os.getenv('ENVIRONMENT', 'production')
-    
-    return AutonomousSpeechSystem(channel_ids, environment)
-
-if __name__ == "__main__":
-    # テスト実行
-    async def test_autonomous_speech():
-        channel_ids = {
-            "command_center": 1383963657137946664,
-            "lounge": 1383966355962990653,
-            "development": 1383968516033478727,
-            "creation": 1383981653046726728
-        }
-        
-        speech_system = AutonomousSpeechSystem(channel_ids, environment="test")
-        await speech_system.start()
-        
-        # テスト用に短時間実行
-        await asyncio.sleep(120)  # 2分間テスト
-        await speech_system.stop()
-    
-    asyncio.run(test_autonomous_speech())

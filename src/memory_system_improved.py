@@ -143,7 +143,7 @@ class ImprovedDiscordMemorySystem:
         
         # 構造化ログフォーマット
         formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s - %(extra)s'
+            '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
         )
         
         handler = logging.StreamHandler()
@@ -330,8 +330,8 @@ class ImprovedDiscordMemorySystem:
             if not messages:
                 return True  # Redisのみ更新
             
-            latest_message = messages[-1] if messages else {}
-            user_content = latest_message.get('content', '')
+            latest_message = messages[-1] if messages else None
+            user_content = getattr(latest_message, 'content', '') if latest_message else ''
             
             if not user_content:
                 return True  # Redisのみ更新
@@ -464,6 +464,22 @@ class ImprovedDiscordMemorySystem:
                 "status": "error",
                 "error": str(e)
             }
+    
+    async def store_task(self, task_key: str, task_data: Dict[str, Any]) -> bool:
+        """タスクデータをRedisに保存"""
+        try:
+            if not self.redis:
+                self.logger.warning("Redis not available, cannot store task")
+                return False
+                
+            task_json = json.dumps(task_data, ensure_ascii=False, default=str)
+            await self.redis.setex(task_key, 86400, task_json)  # 24時間保持
+            self.logger.info(f"Task stored: {task_key}")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Task storage failed: {e}")
+            return False
     
     async def cleanup(self) -> None:
         """リソース正常終了"""

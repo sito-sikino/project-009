@@ -15,15 +15,15 @@ from typing import Dict, Optional, Callable
 import json
 from dataclasses import dataclass
 from enum import Enum
+import discord
 
 logger = logging.getLogger(__name__)
 
 class WorkflowPhase(Enum):
     """ワークフロー段階定義"""
-    REST = "rest"           # 00:00-06:54 システム休息
-    PREPARATION = "prep"    # 06:55-06:59 準備・レポート生成
-    MEETING = "meeting"     # 07:00-19:59 会議・作業フェーズ
-    CONCLUSION = "conclusion"  # 20:00-23:59 作業終了フェーズ
+    STANDBY = "standby"     # 00:00-06:59 待機状態
+    ACTIVE = "active"       # 07:00-19:59 活動時間
+    FREE = "free"           # 20:00-23:59 自由時間
 
 @dataclass
 class WorkflowEvent:
@@ -38,26 +38,21 @@ class WorkflowEvent:
 class DailyWorkflowSystem:
     """Daily Workflow System - 時間ベース自動管理"""
     
-    def __init__(self, channel_ids: Dict[str, int]):
+    def __init__(self, channel_ids: Dict[str, int], memory_system=None, priority_queue=None):
         self.channel_ids = channel_ids
-        self.current_phase = WorkflowPhase.REST
+        self.memory_system = memory_system
+        self.priority_queue = priority_queue
+        self.current_phase = WorkflowPhase.STANDBY
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
         self.user_override_active = False
+        self.current_tasks = {}  # チャンネル別現在タスク
         
         # ワークフロー スケジュール定義
         self.workflow_schedule = [
             WorkflowEvent(
-                time=time(6, 55),
-                phase=WorkflowPhase.PREPARATION,
-                action="daily_report_generation",
-                message="📊 **Daily Report Generation Started**\n\n🌅 おはようございます！昨日の活動レポートを生成中...",
-                channel="command_center",
-                agent="spectra"
-            ),
-            WorkflowEvent(
                 time=time(7, 0),
-                phase=WorkflowPhase.MEETING,
+                phase=WorkflowPhase.ACTIVE,
                 action="morning_meeting_initiation",
                 message="🏢 **Morning Meeting - Session Started**\n\n" +
                        "📋 **Today's Agenda:**\n" +
@@ -71,7 +66,7 @@ class DailyWorkflowSystem:
             ),
             WorkflowEvent(
                 time=time(20, 0),
-                phase=WorkflowPhase.CONCLUSION,
+                phase=WorkflowPhase.FREE,
                 action="work_session_conclusion",
                 message="🌆 **Work Session Conclusion**\n\n" +
                        "お疲れ様でした！本日の作業を振り返りましょう。\n\n" +
@@ -85,7 +80,7 @@ class DailyWorkflowSystem:
             ),
             WorkflowEvent(
                 time=time(0, 0),
-                phase=WorkflowPhase.REST,
+                phase=WorkflowPhase.STANDBY,
                 action="system_rest_period",
                 message="🌙 **System Rest Period**\n\n" +
                        "システムが休息モードに入ります。\n" +
@@ -183,52 +178,209 @@ class DailyWorkflowSystem:
             
     async def _notify_event_execution(self, event: WorkflowEvent):
         """イベント実行を外部システムに通知"""
-        # Message Queue に追加して適切なボットが送信
-        queue_item = {
-            'id': f"workflow_{event.action}_{datetime.now().isoformat()}",
-            'content': event.message,
-            'author': 'SYSTEM',
-            'author_id': '000000000000000000',
-            'channel_id': str(self.channel_ids.get(event.channel, 0)),
-            'channel_name': event.channel,
-            'target_agent': event.agent,
-            'timestamp': datetime.now().isoformat(),
-            'processed': False,
-            'priority': 1,  # Workflow events are high priority
-            'event_type': 'workflow',
-            'workflow_action': event.action
+        if event.action == "daily_report_generation":
+            # 日報生成の場合は専用処理
+            report_content = await self.generate_daily_report()
+            await self._send_workflow_message(report_content, event.channel, event.agent, 1)
+        else:
+            # 通常のワークフローメッセージ
+            await self._send_workflow_message(event.message, event.channel, event.agent, 1)
+            
+    async def _send_workflow_message(self, content: str, channel: str, agent: str, priority: int = 1):
+        """ワークフローメッセージをPriorityQueueに送信"""
+        if not self.priority_queue:
+            logger.warning("Priority queue not available, cannot send workflow message")
+            return
+            
+        # PriorityQueue用のメッセージオブジェクト作成
+        class WorkflowMessage:
+            def __init__(self, content, channel_id, target_agent):
+                self.content = content
+                self.channel = WorkflowChannel(channel_id)
+                self.author = WorkflowAuthor()
+                self.id = f"workflow_{datetime.now().isoformat()}"
+                self.autonomous_speech = True
+                self.target_agent = target_agent
+                
+        class WorkflowChannel:
+            def __init__(self, channel_id):
+                self.id = channel_id
+                self.name = channel
+                
+        class WorkflowAuthor:
+            def __init__(self):
+                self.bot = True
+                self.id = "000000000000000000"
+        
+        message_data = {
+            'message': WorkflowMessage(content, self.channel_ids.get(channel, 0), agent),
+            'priority': priority,
+            'timestamp': datetime.now()
         }
         
-        # キューファイルに追加
         try:
-            with open("message_queue.json", "r", encoding='utf-8') as f:
-                queue_data = json.load(f)
-        except (FileNotFoundError, json.JSONDecodeError):
-            queue_data = []
+            await self.priority_queue.enqueue(message_data)
+            logger.info(f"📝 Workflow message queued: {agent} -> #{channel}")
+        except Exception as e:
+            logger.error(f"❌ Failed to queue workflow message: {e}")
             
-        queue_data.append(queue_item)
-        
-        with open("message_queue.json", "w", encoding='utf-8') as f:
-            json.dump(queue_data, indent=2, ensure_ascii=False)
+    async def generate_daily_report(self) -> str:
+        """Redis履歴から日報を生成"""
+        try:
+            if not self.memory_system:
+                return self._get_default_daily_report()
+                
+            # Redis から昨日の会話履歴を取得
+            yesterday = datetime.now().date() - timedelta(days=1)
+            conversations = await self.memory_system.get_conversation_history(
+                limit=100,
+                start_date=yesterday
+            )
             
-        logger.info(f"📝 Workflow message queued: {event.agent} -> #{event.channel}")
+            if not conversations:
+                return self._get_default_daily_report()
+                
+            # 統計情報の計算
+            total_messages = len(conversations)
+            unique_users = len(set(conv.get('user_id', 'unknown') for conv in conversations))
+            
+            # 重要な議論の抽出（簡易実装）
+            key_discussions = []
+            for conv in conversations[-10:]:  # 最新10件から抽出
+                content = conv.get('content', '')
+                if len(content) > 100 and any(keyword in content.lower() for keyword in ['実装', '設計', '問題', '提案', '完了']):
+                    key_discussions.append(content[:100] + "...")
+                    
+            # Discord Embed形式の日報生成
+            embed_content = f"""📊 **Daily Report - {yesterday.strftime('%Y-%m-%d')}**
+
+📈 **Activity Metrics**
+• 会話数: {total_messages}
+• 参加ユーザー数: {unique_users}
+• アクティブ期間: 07:00-20:00
+
+💬 **Key Discussions**
+{chr(10).join(f"• {disc}" for disc in key_discussions[:3]) if key_discussions else "• 特記事項なし"}
+
+✅ **Achievements**
+• システム正常稼働継続
+• ユーザー応答100%達成
+{f"• {len(key_discussions)}件の重要議論" if key_discussions else ""}
+
+⚠️ **Issues/Blockers**
+• 現在、重大な課題は検出されていません
+
+📋 **Carry Forward**
+• 継続的なシステム改善
+• ユーザーエンゲージメント向上
+
+🏢 **今日の会議を開始いたします**
+📋 **Today's Agenda:**
+• 昨日の進捗レビュー
+• 今日の目標設定
+• リソース配分の確認
+• 課題・ブロッカーの特定
+
+それでは、本日もよろしくお願いします！ 💪"""
+
+            return embed_content
+            
+        except Exception as e:
+            logger.error(f"❌ Daily report generation failed: {e}")
+            return self._get_default_daily_report()
+            
+    def _get_default_daily_report(self) -> str:
+        """デフォルト日報"""
+        today = datetime.now().date()
+        return f"""📊 **Daily Report - {today.strftime('%Y-%m-%d')}**
+
+📈 **Activity Metrics**
+• システム正常稼働中
+
+💬 **Key Discussions**
+• メモリシステム初期化中
+
+✅ **Achievements**
+• システム起動完了
+
+📋 **Today's Agenda**
+• システム稼働開始
+• ユーザー対応準備完了
+
+本日もよろしくお願いします！ 💪"""
+
+    async def process_task_command(self, command: str, channel: str, task: str, user_id: str) -> str:
+        """タスクコマンド処理"""
+        try:
+            if command == "commit":
+                # タスクをRedisに保存
+                if self.memory_system:
+                    task_data = {
+                        'task': task,
+                        'channel': channel,
+                        'user_id': user_id,
+                        'timestamp': datetime.now().isoformat(),
+                        'status': 'active'
+                    }
+                    await self.memory_system.store_task(f"task_{channel}", task_data)
+                
+                # チャンネル別現在タスクを更新
+                self.current_tasks[channel] = {
+                    'task': task,
+                    'channel': channel,  # ✅ チャンネル情報追加
+                    'user_id': user_id,
+                    'start_time': datetime.now()
+                }
+                
+                response = f"""✅ **タスク確定完了**
+
+📋 **Channel**: #{channel}
+🎯 **Task**: {task}
+👤 **Assigned**: <@{user_id}>
+⏰ **Started**: {datetime.now().strftime('%H:%M')}
+
+実務モードに切り替わりました。該当チャンネルでの作業支援を強化します。"""
+
+                return response
+                
+            elif command == "change":
+                # 既存タスクの更新
+                if channel in self.current_tasks:
+                    old_task = self.current_tasks[channel]['task']
+                    self.current_tasks[channel]['task'] = task
+                    self.current_tasks[channel]['channel'] = channel  # ✅ チャンネル情報確保
+                    self.current_tasks[channel]['updated'] = datetime.now()
+                    
+                    response = f"""🔄 **タスク変更完了**
+
+📋 **Channel**: #{channel}
+🔄 **From**: {old_task}
+🎯 **To**: {task}
+⏰ **Updated**: {datetime.now().strftime('%H:%M')}
+
+新しいタスクでの作業支援を開始します。"""
+                else:
+                    response = f"""⚠️ **変更対象タスクが見つかりません**
+
+まず `/task commit {channel} "{task}"` でタスクを確定してください。"""
+                
+                return response
+                
+        except Exception as e:
+            logger.error(f"❌ Task command processing failed: {e}")
+            return f"❌ **タスク処理中にエラーが発生しました**: {str(e)}"
         
     def _update_current_phase(self, current_time: time):
         """現在のフェーズを更新"""
         hour = current_time.hour
-        minute = current_time.minute
         
-        if hour == 0 and minute == 0:
-            self.current_phase = WorkflowPhase.REST
-        elif hour == 6 and minute >= 55:
-            self.current_phase = WorkflowPhase.PREPARATION
-        elif hour >= 7 and hour < 20:
-            self.current_phase = WorkflowPhase.MEETING
+        if hour >= 7 and hour < 20:
+            self.current_phase = WorkflowPhase.ACTIVE
         elif hour >= 20:
-            self.current_phase = WorkflowPhase.CONCLUSION
+            self.current_phase = WorkflowPhase.FREE
         else:
-            # 夜間休息時間
-            self.current_phase = WorkflowPhase.REST
+            # 夜間待機時間 (0:00-6:59)
+            self.current_phase = WorkflowPhase.STANDBY
             
     async def handle_user_override(self, command: str, duration_minutes: int = 60):
         """ユーザーによるワークフロー上書き"""

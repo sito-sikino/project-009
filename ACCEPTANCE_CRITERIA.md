@@ -444,65 +444,118 @@ def test_context_aware_responses():
 
 ## 🔄 Workflow Acceptance Criteria
 
-### AC-015: Daily Workflow Automation
-**Requirement**: Automated daily workflow execution
-**Priority**: Medium
+### AC-015: Daily Workflow Automation (Updated)
+**Requirement**: Automated daily workflow with task-driven transitions
+**Priority**: High
 **Category**: Automation
 
+**Daily Schedule**:
+- **00:00-06:59**: REST期間 - 自発発言無効、ユーザー応答は全チャンネル有効
+- **07:00**: 統合イベント - 日報生成（Discord Embed）+ 会議開始宣言
+- **07:01-19:59**: MEETING期間 - **command-centerで会議継続**（デフォルト）、`/task commit [channel] "[task]"`で**指定チャンネルに全員移動・実務開始**
+- **20:00-23:59**: CONCLUSION期間 - loungeのみで自発発言有効、全チャンネルでユーザー応答有効
+
+**重要**: シーケンシャル進行により常に1つのチャンネルのみアクティブ。`/task commit`トリガーがない限り20:00までcommand-centerで会議継続。
+
 **Acceptance Criteria**:
-- [ ] 06:55 daily report generation works automatically
-- [ ] 07:00 morning meeting initiation works
-- [ ] 20:00 work session conclusion works
-- [ ] 00:00 system rest period works
-- [ ] User can override workflow with /commit commands
+- [ ] 07:00 日報生成（Redis会話履歴から自動生成）+ 会議開始が統合実行
+- [ ] 20:00 作業終了宣言（Spectraがlounge）が実行
+- [ ] 00:00 システム休息期間開始が実行
+- [ ] `/task commit [channel] "[task]"` でタスク確定・実務モード切り替え
+- [ ] `/task change [channel] "[task]"` でタスク/チャンネル変更
+- [ ] 実務モード時のシステムプロンプト制御とチャンネル優先度変更
+
+**Daily Report Template**:
+```
+📊 **Daily Report - [Date]**
+📈 **Activity Metrics**: [前日の会話数、参加ユーザー数等]
+💬 **Key Discussions**: [重要な議論の要約]
+✅ **Achievements**: [達成されたタスク・成果]
+⚠️ **Issues/Blockers**: [課題・ブロッカー]
+📋 **Carry Forward**: [継続事項・次の行動]
+```
+
+**Task Management**:
+- **Format**: `/task commit development "認証システム実装とテスト"`
+- **Scope**: 複数タスク可能、20:00でリセット
+- **Storage**: Redis（Hot Memory）、日報で長期記憶化
+- **Permissions**: ユーザーのみ（管理者権限）
 
 **Validation Method**:
 ```python
 def test_daily_workflow_automation():
-    # Test time-triggered events
-    # Verify workflow transitions
-    # Test user override commands
-    # Check system state management
-    assert time_triggered_events_work()
-    assert workflow_transitions_correct()
-    assert user_overrides_work()
+    # Test 07:00 integrated event (report + meeting)
+    # Test task commit/change commands
+    # Test work mode transitions
+    # Test system prompt control
+    assert integrated_daily_report_works()
+    assert task_commands_work()
+    assert work_mode_transitions_correct()
+    assert system_prompt_control_active()
 ```
 
 **Success Metrics**:
 - Workflow trigger accuracy: 100%
-- Transition success rate: >99%
-- User override response: <5 seconds
+- Task command response: <5 seconds
+- Daily report generation: 100% success
+- Work mode transition: 100% success
 
 ---
 
-### AC-016: Autonomous Speech System
-**Requirement**: Self-initiated conversation and engagement
+### AC-016: Autonomous Speech System (Context-Aware)
+**Requirement**: Phase-based autonomous engagement with intelligent context awareness
 **Priority**: Medium
 **Category**: AI Behavior
 
+**Phase-Based Behavior**:
+- **REST (00:00-06:59)**: 自発発言完全無効、ユーザー応答は全チャンネル有効
+- **MEETING (07:00-19:59)**: command-centerで会議継続（デフォルト）、タスク実行時は指定チャンネルに集中
+- **CONCLUSION (20:00-23:59)**: loungeのみで自発発言有効、ユーザー応答は全チャンネル有効
+
+**Context-Aware Processing**:
+- **文脈判定**: LangGraph Supervisorが状況に応じて適切な発言内容を決定
+- **重複防止**: グローバルロックによりTick干渉時は自発発言スキップ
+- **自然な対話**: 会話の流れを理解して発言タイミングを調整
+
+**Channel Frequency Preferences** (affects both autonomous speech and user responses):
+- **LynQ**: development 50%, others 25%
+- **Paz**: creation 50%, others 25%  
+- **Spectra**: 全チャンネル均等
+
 **Acceptance Criteria**:
-- [ ] 5-minute tick-based scheduling works
+- [ ] REST期間中の自発発言完全停止
+- [ ] 5-minute tick-based scheduling works (MEETING/CONCLUSION期間のみ)
 - [ ] Environment-specific speech probability (test: 100%, prod: 33%)
-- [ ] Channel-specific agent selection works
+- [ ] Channel frequency preferences applied to agent selection
 - [ ] Autonomous speech doesn't interrupt user conversations
 - [ ] Speech quality maintains agent personalities
+- [ ] Work mode時のタスク関連発言強化
+
+**Work Mode Integration**:
+- システムプロンプトでタスク関連発言を促進
+- 確定タスクに関する技術的議論・創作議論の増加
+- チャンネル優先度の強化適用
 
 **Validation Method**:
 ```python
 def test_autonomous_speech_system():
-    # Test tick scheduling
-    # Verify probability distributions
+    # Test phase-based enable/disable
+    # Test channel frequency preferences
+    # Verify probability distributions by phase
     # Check conversation interruption logic
-    # Validate speech quality
-    assert tick_scheduling_accurate()
+    # Validate work mode integration
+    assert rest_period_speech_disabled()
+    assert channel_preferences_work()
     assert probability_distributions_correct()
     assert no_conversation_interruption()
+    assert work_mode_integration_active()
 ```
 
 **Success Metrics**:
-- Tick timing accuracy: ±30 seconds
-- Probability compliance: 100%
+- Phase-based control: 100% accuracy
+- Channel preference compliance: 90%+
 - Interruption rate: 0%
+- Work mode activation: <5 seconds
 
 ---
 
