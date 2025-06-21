@@ -347,7 +347,7 @@ class ImprovedDiscordMemorySystem:
             
             # Redis更新
             async with self.redis.pipeline(transaction=True) as pipe:
-                pipe.lpush(redis_key, json.dumps(memory_entry))
+                pipe.lpush(redis_key, json.dumps(memory_entry, default=str))
                 pipe.ltrim(redis_key, 0, self.hot_memory_limit - 1)
                 pipe.expire(redis_key, self.hot_memory_ttl)
                 await pipe.execute()
@@ -376,7 +376,7 @@ class ImprovedDiscordMemorySystem:
                             conversation_data.get('confidence', 0.5),
                             content_embedding,
                             response_embedding,
-                            json.dumps(conversation_data),
+                            json.dumps(conversation_data, default=str),
                             min(conversation_data.get('confidence', 0.5), 1.0)
                         )
             

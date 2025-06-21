@@ -344,14 +344,55 @@ class DailyWorkflowSystem:
                 return response
                 
             elif command == "change":
-                # 既存タスクの更新
-                if channel in self.current_tasks:
-                    old_task = self.current_tasks[channel]['task']
-                    self.current_tasks[channel]['task'] = task
-                    self.current_tasks[channel]['channel'] = channel  # ✅ チャンネル情報確保
-                    self.current_tasks[channel]['updated'] = datetime.now()
+                # 既存タスクの更新 - チャンネル間移動対応版
+                
+                # アクティブタスクを検索（どのチャンネルでも）
+                current_active_task = None
+                old_channel = None
+                for ch, task_info in self.current_tasks.items():
+                    current_active_task = task_info
+                    old_channel = ch
+                    break  # 最初のアクティブタスクを使用（Sequential operation）
+                
+                if current_active_task:
+                    old_task = current_active_task['task']
                     
-                    response = f"""🔄 **タスク変更完了**
+                    # 旧チャンネルからタスクを削除（チャンネル移動の場合）
+                    if old_channel != channel:
+                        del self.current_tasks[old_channel]
+                    
+                    # 新チャンネルにタスクを設定
+                    self.current_tasks[channel] = {
+                        'task': task,
+                        'channel': channel,
+                        'user_id': current_active_task.get('user_id'),
+                        'start_time': current_active_task.get('start_time'),
+                        'updated': datetime.now()
+                    }
+                    
+                    # Redis保存（メモリシステムが利用可能な場合）
+                    if self.memory_system:
+                        task_data = {
+                            'task': task,
+                            'channel': channel,
+                            'user_id': current_active_task.get('user_id'),
+                            'timestamp': datetime.now().isoformat(),
+                            'status': 'active',
+                            'changed_from': f"{old_channel}:{old_task}"
+                        }
+                        await self.memory_system.store_task(f"task_{channel}", task_data)
+                    
+                    # チャンネル変更か内容変更かを判定
+                    if old_channel != channel:
+                        response = f"""🔄 **タスク・チャンネル変更完了**
+
+📋 **From**: #{old_channel} → #{channel}
+🔄 **Task**: {old_task} → {task}
+⏰ **Updated**: {datetime.now().strftime('%H:%M')}
+
+{channel}チャンネルでの作業支援を開始します。"""
+                    else:
+                        response = f"""🔄 **タスク変更完了**
 
 📋 **Channel**: #{channel}
 🔄 **From**: {old_task}
@@ -362,6 +403,7 @@ class DailyWorkflowSystem:
                 else:
                     response = f"""⚠️ **変更対象タスクが見つかりません**
 
+現在アクティブなタスクがありません。
 まず `/task commit {channel} "{task}"` でタスクを確定してください。"""
                 
                 return response
