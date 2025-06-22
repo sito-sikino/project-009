@@ -14,7 +14,7 @@ import os
 from typing import List, Dict, Any
 from datetime import datetime
 
-from src.memory_system import DiscordMemorySystem
+from src.memory_system_improved import ImprovedDiscordMemorySystem as DiscordMemorySystem
 
 
 class TestMemoryPerformanceBenchmarks:

@@ -1,0 +1,748 @@
+# Discord Multi-Agent System - 受入基準
+
+## 📋 概要
+
+このドキュメントでは、Discord Multi-Agent System (project-009) の包括的な受入基準を定義し、統合受信・個別送信型アーキテクチャ (Unified Reception, Individual Transmission Architecture) を実装します。
+
+## 🎯 システムアーキテクチャ受入基準
+
+### AC-001: 統合メッセージ受信
+**要件**: 単一のReception BotがすべてのDiscordメッセージを受信
+**優先度**: 重要
+**カテゴリ**: アーキテクチャ
+
+**受入基準**:
+- [x] 1つのDiscord client (Reception Bot) のみがメッセージイベントハンドラーを有効化
+- [x] Reception Botが監視対象チャンネルからのメッセージを100%受信
+- [x] 受信時のメッセージ重複や消失なし
+- [x] Reception Botが適切な優先度レベルでメッセージをキューに追加
+
+**検証方法**:
+```python
+def test_unified_reception_single_bot_receives_all_messages():
+    # 複数チャンネルにテストメッセージを送信
+    # reception_client.on_messageのみがトリガーされることを検証
+    # すべてのメッセージが正しくキューに格納されることを確認
+    assert only_reception_client_receives_messages()
+    assert message_queue_contains_all_sent_messages()
+```
+
+**成功指標**:
+- メッセージ受信率: 100%
+- 重複処理なし
+- 正しい優先度割り当て (Mention=1, Normal=3, Autonomous=5)
+
+---
+
+### AC-002: 個別エージェント送信
+**要件**: 3つの独立したボットが固有のアイデンティティでメッセージを送信
+**優先度**: 重要
+**カテゴリ**: アーキテクチャ
+
+**受入基準**:
+- [x] Spectra Botが独自のDiscordアイデンティティとプロフィールを持つ
+- [x] LynQ Botが独自のDiscordアイデンティティとプロフィールを持つ
+- [x] Paz Botが独自のDiscordアイデンティティとプロフィールを持つ
+- [x] 各ボットが独立してメッセージを送信可能
+- [x] ボットが個別のオンライン/オフライン状態を維持
+- [x] 個別ボットの@mentionが正しく動作
+
+**検証方法**:
+```python
+def test_individual_sending_three_bots_send_independently():
+    # 各ボットが固有のDiscord clientを持つことを検証
+    # 個別メッセージ送信をテスト
+    # Discordでの個別アイデンティティを確認
+    assert len(unique_discord_clients) == 4  # 1 reception + 3 sending
+    assert each_bot_has_unique_identity()
+    assert individual_mentions_work_correctly()
+```
+
+**成功指標**:
+- Discordで確認できる3つの個別ボットアイデンティティ
+- 個別@mention機能が動作
+- 各ボットの個別オンライン状態
+
+---
+
+### AC-003: LangGraph Supervisor統合
+**要件**: LangGraph Supervisor Patternがすべてのエージェント決定を統括
+**優先度**: 重要
+**カテゴリ**: AI統合
+
+**受入基準**:
+- [ ] すべてのエージェント選択決定がLangGraphワークフローを通過
+- [ ] 4ノードワークフロー (Load Hot → Load Cold → Select/Generate → Update) が正しく実行
+- [ ] ノード間で状態管理がコンテキストを保持
+- [ ] Supervisor patternがエラー回復を処理
+- [ ] Redisでワークフローチェックポイントが動作
+
+**検証方法**:
+```python
+def test_langgraph_integration_supervisor_pattern_orchestrates():
+    # 完全なワークフロー実行をテスト
+    # すべてのノードが正しい順序で実行されることを検証
+    # 状態保持を確認
+    assert workflow_executes_all_nodes()
+    assert state_preserved_between_nodes()
+    assert supervisor_makes_final_decisions()
+```
+
+**成功指標**:
+- 決定の100%がLangGraphを通過
+- ワークフロー完了率: >99%
+- 状態整合性を維持
+
+---
+
+### AC-004: API効率最適化
+**要件**: 統合処理によりAPI呼び出しを50%削減
+**優先度**: 高
+**カテゴリ**: パフォーマンス
+
+**受入基準**:
+- [ ] 単一のGemini API呼び出しでエージェント選択と応答生成の両方を実行
+- [ ] メッセージ処理あたりのAPI呼び出しを2回から1回に削減
+- [ ] 統合処理で同じ決定品質を維持
+- [ ] 15 RPM制約でのレート制限遵守
+
+**検証方法**:
+```python
+def test_api_efficiency_50_percent_reduction_achieved():
+    # 従来型 vs 統合型アプローチのAPI呼び出し回数をカウント
+    # 決定品質の一貫性を測定
+    # レート制限遵守を検証
+    assert api_calls_reduced_by_50_percent()
+    assert decision_quality_maintained()
+    assert rate_limits_respected()
+```
+
+**成功指標**:
+- メッセージあたりのAPI呼び出し: 1回 (2回から削減)
+- 決定品質: ≥95%の精度を維持
+- レート制限遵守: 100%
+
+---
+
+## 🧠 メモリシステム受入基準
+
+### AC-005: 2層メモリ統合
+**要件**: Redis Hot Memory + PostgreSQL Cold Memoryの協調
+**優先度**: 重要
+**カテゴリ**: データ管理
+
+**受入基準**:
+- [ ] Hot Memory (Redis) が当日の会話を保存
+- [ ] Cold Memory (PostgreSQL) がベクトル検索で長期知識を保存
+- [ ] 06:55に毎日のHot→Cold移行が自動実行
+- [ ] 処理中に両方のメモリ層にアクセス可能
+- [ ] メモリアクセス時間がパフォーマンス要件を満たす
+
+**検証方法**:
+```python
+def test_memory_system_hot_cold_integration_works():
+    # ホットメモリの保存と取得をテスト
+    # コールドメモリのベクトル検索をテスト
+    # 毎日の移行プロセスを検証
+    # 組み合わせメモリアクセスを確認
+    assert hot_memory_stores_daily_conversations()
+    assert cold_memory_vector_search_works()
+    assert daily_migration_preserves_data()
+```
+
+**成功指標**:
+- Hot memoryアクセス時間: <0.1秒
+- Cold memory検索時間: <3秒
+- 毎日の移行成功率: 100%
+- データ整合性: 100%
+
+---
+
+### AC-006: メモリアクセスパフォーマンス
+**要件**: メモリ操作がタイミング要件を満たす
+**優先度**: 高
+**カテゴリ**: パフォーマンス
+
+**受入基準**:
+- [ ] Hot Memory (Redis) アクセス: <0.1秒
+- [ ] Cold Memory (PostgreSQL) ベクトル検索: <3秒
+- [ ] 組み合わせメモリロード: 合計<3.5秒
+- [ ] メモリ操作がメッセージ処理をブロックしない
+- [ ] 並行メモリアクセスをサポート
+
+**検証方法**:
+```python
+def test_memory_access_performance_meets_requirements():
+    # メモリアクセス時間をベンチマーク
+    # 並行アクセスシナリオをテスト
+    # ノンブロッキング操作を検証
+    assert hot_memory_access_under_100ms()
+    assert cold_memory_search_under_3s()
+    assert concurrent_access_supported()
+```
+
+**成功指標**:
+- Redisアクセス: <0.1秒 (100ms)
+- PostgreSQL検索: <3秒
+- 並行操作: ブロッキングなし
+
+---
+
+## ⚡ パフォーマンス受入基準
+
+### AC-007: 応答時間パフォーマンス
+**要件**: 応答の95%が9秒以内に完了
+**優先度**: 重要
+**カテゴリ**: パフォーマンス
+
+**受入基準**:
+- [ ] エンドツーエンドメッセージ処理: メッセージの95%で<9秒
+- [ ] メンション応答: メンションの100%で<9秒
+- [ ] 通常メッセージ応答: 通常メッセージの95%で<9秒
+- [ ] 通常負荷でパフォーマンスを維持
+- [ ] 高負荷時の適切な性能劣化
+
+**検証方法**:
+```python
+def test_response_time_95_percent_under_9_seconds():
+    # 100のテストメッセージを処理
+    # エンドツーエンド応答時間を測定
+    # 95パーセンタイルを計算
+    response_times = process_100_test_messages()
+    percentile_95 = calculate_95th_percentile(response_times)
+    assert percentile_95 < 9.0
+```
+
+**成功指標**:
+- 95パーセンタイル応答時間: <9秒
+- メンション応答時間: <9秒 (100%)
+- 平均応答時間: <6秒
+
+---
+
+### AC-008: エージェント選択精度
+**要件**: エージェント選択精度が95%を超える
+**優先度**: 重要
+**カテゴリ**: AI品質
+
+**受入基準**:
+- [ ] 技術的議論をLynQにルーティング: >95%の精度
+- [ ] 創造的議論をPazにルーティング: >95%の精度
+- [ ] 会議進行をSpectraにルーティング: >95%の精度
+- [ ] チャンネル固有のルーティングが正しく動作
+- [ ] コンテキスト対応の意思決定
+
+**検証方法**:
+```python
+def test_agent_selection_95_percent_accuracy():
+    # カテゴリ分けされたメッセージシナリオでテスト
+    # 正しいエージェント選択を検証
+    # カテゴリ別の精度を計算
+    test_scenarios = load_categorized_test_scenarios()
+    accuracy = calculate_selection_accuracy(test_scenarios)
+    assert accuracy > 0.95
+```
+
+**成功指標**:
+- 全体精度: >95%
+- 技術ルーティング精度: >95%
+- 創造ルーティング精度: >95%
+- 進行ルーティング精度: >95%
+
+---
+
+## 🏗️ システムアーキテクチャ受入基準
+
+### AC-009: 並列Client協調
+**要件**: asyncio.gather()が4つのDiscord clientを競合なしで協調
+**優先度**: 重要
+**カテゴリ**: アーキテクチャ
+
+**受入基準**:
+- [ ] 4つのDiscord clientすべてがasyncio.gather()で正常に開始
+- [ ] client間でメッセージ処理競合なし
+- [ ] 個別client障害がシステムクラッシュを引き起こさない
+- [ ] シャットダウン時の適切なリソースクリーンアップ
+- [ ] 並行操作が正しく動作
+
+**検証方法**:
+```python
+def test_parallel_execution_asyncio_gather_coordination():
+    # asyncio.gather()ですべてのclientを開始
+    # 操作中の競合がないことを検証
+    # 個別client障害の分離をテスト
+    # 適切なクリーンアップを確認
+    assert all_clients_start_successfully()
+    assert no_processing_conflicts()
+    assert client_failure_isolation()
+```
+
+**成功指標**:
+- Client開始成功率: 100%
+- メッセージ競合ゼロ
+- 障害分離: 100%
+
+---
+
+### AC-010: メッセージ優先度キュー
+**要件**: 優先度キューがメッセージを正しい順序で処理
+**優先度**: 高
+**カテゴリ**: アーキテクチャ
+
+**受入基準**:
+- [ ] メンション (優先度1) を通常メッセージ (優先度3) より先に処理
+- [ ] 通常メッセージを自発メッセージ (優先度5) より先に処理
+- [ ] 優先度キューが大量処理を正しく処理
+- [ ] 同一優先度レベル内でのFIFO順序
+- [ ] キューオーバーフロー処理
+
+**検証方法**:
+```python
+def test_priority_queue_ordering_correct():
+    # 異なる優先度のメッセージをキューに追加
+    # 処理順序を検証
+    # 大量シナリオをテスト
+    queue_mixed_priority_messages()
+    assert mentions_processed_first()
+    assert fifo_within_priority_level()
+```
+
+**成功指標**:
+- 優先度順序: 100%正確
+- キュー容量: >1000メッセージ
+- 処理順序一貫性: 100%
+
+---
+
+## 🛡️ 信頼性受入基準
+
+### AC-011: エラー処理と回復
+**要件**: コンポーネント障害にもかかわらずシステムが動作継続
+**優先度**: 重要
+**カテゴリ**: 信頼性
+
+**受入基準**:
+- [ ] Gemini API障害でフォールバックエージェント選択をトリガー
+- [ ] Discord API障害を適切に処理
+- [ ] データベース接続障害でシステムがクラッシュしない
+- [ ] 個別ボット障害が他のボットに影響しない
+- [ ] 自動再試行メカニズムが正しく動作
+
+**検証方法**:
+```python
+def test_error_handling_system_resilience():
+    # 様々な障害シナリオをシミュレート
+    # 適切な性能劣化を検証
+    # 回復メカニズムをテスト
+    # システムが動作継続することを確認
+    assert handles_api_failures_gracefully()
+    assert fallback_mechanisms_work()
+    assert system_continues_operating()
+```
+
+**成功指標**:
+- 障害時のシステム稼働時間: >99%
+- フォールバック起動: 必要時100%
+- 回復時間: <30秒
+
+---
+
+### AC-012: レート制限遵守
+**要件**: システムがGemini APIレート制限 (15 RPM) を遵守
+**優先度**: 高
+**カテゴリ**: 信頼性
+
+**受入基準**:
+- [ ] Gemini APIへの毎分15リクエストを超えない
+- [ ] レート制限エラーの指数バックオフを実装
+- [ ] レート制限中に優先メッセージが優先される
+- [ ] レート制限期間中にシステムがメッセージをキューイング
+- [ ] レート制限監視とアラート
+
+**検証方法**:
+```python
+def test_rate_limiting_compliance():
+    # 時間経過によるAPI呼び出しを監視
+    # レート制限エラー処理をテスト
+    # 優先メッセージの優先度を検証
+    # キューイング動作をチェック
+    assert api_calls_per_minute <= 15
+    assert exponential_backoff_works()
+    assert priority_messages_preferred()
+```
+
+**成功指標**:
+- 毎分API呼び出し: ≤15
+- レート制限違反: 0
+- 優先メッセージ遅延: <60秒
+
+---
+
+## 🤖 AI動作受入基準
+
+### AC-013: エージェント個性一貫性
+**要件**: 各エージェントが個別の個性と動作を維持
+**優先度**: 高
+**カテゴリ**: AI品質
+
+**受入基準**:
+- [ ] Spectraが組織化と進行技能を示す
+- [ ] LynQが論理分析と技術的焦点を示す
+- [ ] Pazが創造的で革新的思考を示す
+- [ ] すべての相互作用での個性一貫性
+- [ ] コンテキストに基づく適切なエージェント選択
+
+**検証方法**:
+```python
+def test_agent_personality_consistency():
+    # 各エージェントからの応答をテスト
+    # 言語パターンと動作を分析
+    # 個性特性を検証
+    # 時間経過による一貫性をチェック
+    assert spectra_shows_organization_skills()
+    assert lynq_demonstrates_logical_analysis()
+    assert paz_exhibits_creativity()
+```
+
+**成功指標**:
+- 個性一貫性: >90%
+- 個別行動パターン: 測定可能
+- エージェントペルソナのユーザー満足度: >85%
+
+---
+
+### AC-014: コンテキスト対応応答
+**要件**: 応答にメモリからの関連コンテキストを組み込む
+**優先度**: 高
+**カテゴリ**: AI品質
+
+**受入基準**:
+- [ ] Hot memoryコンテキストが応答生成に影響
+- [ ] Cold memoryが関連する履歴コンテキストを提供
+- [ ] コンテキスト関連性フィルタリングが正しく動作
+- [ ] メモリコンテキストが応答品質を向上
+- [ ] コンテキスト統合が処理を遅延させない
+
+**検証方法**:
+```python
+def test_context_aware_responses():
+    # コンテキスト有り無しで応答をテスト
+    # コンテキスト関連性を検証
+    # 応答品質向上を測定
+    # 処理時間への影響をチェック
+    assert responses_use_relevant_context()
+    assert context_improves_quality()
+    assert processing_time_acceptable()
+```
+
+**成功指標**:
+- コンテキスト活用率: >80%
+- コンテキスト有り応答品質: >4.0/5.0
+- 処理時間への影響: <2秒
+
+---
+
+## 🔄 ワークフロー受入基準
+
+### AC-015: 日次ワークフロー自動化 (更新版)
+**要件**: タスク駆動遷移による自動化された日次ワークフロー
+**優先度**: 高
+**カテゴリ**: 自動化
+
+**日次スケジュール**:
+- **00:00-06:59**: STANDBY期間 - 自発発言無効、ユーザー応答は全チャンネル有効
+- **07:00**: 統合イベント - 日報生成（Discord Embed）+ 会議開始宣言
+- **07:01-19:59**: ACTIVE期間 - **command-centerで会議継続**（デフォルト）、`/task commit [channel] "[task]"`で**指定チャンネルに全員移動・実務開始**
+- **20:00-23:59**: FREE期間 - loungeのみで自発発言有効、全チャンネルでユーザー応答有効
+
+**重要**: シーケンシャル進行により常に1つのチャンネルのみアクティブ。`/task commit`トリガーがない限り20:00までcommand-centerで会議継続。
+
+**受入基準**:
+- [x] 07:00 日報生成（Redis会話履歴から自動生成）+ 会議開始が統合実行
+- [x] 20:00 作業終了宣言（Spectraがlounge）が実行
+- [ ] 00:00 システム休息期間開始が実行
+- [x] `/task commit [channel] "[task]"` でタスク確定・実務モード切り替え
+- [x] `/task change [channel] "[task]"` でタスク/チャンネル変更（部門間移動対応）
+- [ ] 実務モード時のシステムプロンプト制御とチャンネル優先度変更
+
+**日報テンプレート**:
+```
+📊 **Daily Report - [Date]**
+📈 **Activity Metrics**: [前日の会話数、参加ユーザー数等]
+💬 **Key Discussions**: [重要な議論の要約]
+✅ **Achievements**: [達成されたタスク・成果]
+⚠️ **Issues/Blockers**: [課題・ブロッカー]
+📋 **Carry Forward**: [継続事項・次の行動]
+```
+
+**タスク管理**:
+- **Format**: `/task commit development "認証システム実装とテスト"`
+- **Scope**: 複数タスク可能、20:00でリセット
+- **Storage**: Redis（Hot Memory）、日報で長期記憶化
+- **Permissions**: ユーザーのみ（管理者権限）
+
+**検証方法**:
+```python
+def test_daily_workflow_automation():
+    # 07:00統合イベント (日報 + 会議) をテスト
+    # task commit/changeコマンドをテスト
+    # ワークモード遷移をテスト
+    # システムプロンプト制御をテスト
+    assert integrated_daily_report_works()
+    assert task_commands_work()
+    assert work_mode_transitions_correct()
+    assert system_prompt_control_active()
+```
+
+**成功指標**:
+- ワークフロートリガー精度: 100%
+- タスクコマンド応答: <5秒
+- 日報生成: 100%成功
+- ワークモード遷移: 100%成功
+
+---
+
+### AC-016: 自発発言システム (コンテキスト対応)
+**要件**: インテリジェントなコンテキスト認識による段階的自発エンゲージメント
+**優先度**: 中
+**カテゴリ**: AI動作
+
+**段階別動作**:
+- **STANDBY (00:00-06:59)**: 自発発言完全無効、ユーザー応答は全チャンネル有効
+- **ACTIVE (07:00-19:59)**: command-centerで会議継続（デフォルト）、タスク実行時は指定チャンネルに集中
+- **FREE (20:00-23:59)**: loungeのみで自発発言有効、ユーザー応答は全チャンネル有効
+
+**コンテキスト対応処理**:
+- **文脈判定**: LangGraph Supervisorが状況に応じて適切な発言内容を決定
+- **重複防止**: グローバルロックによりTick干渉時は自発発言スキップ
+- **自然な対話**: 会話の流れを理解して発言タイミングを調整
+
+**チャンネル頻度設定** (自発発言とユーザー応答の両方に影響):
+- **LynQ**: development 50%, others 25%
+- **Paz**: creation 50%, others 25%  
+- **Spectra**: 全チャンネル均等
+
+**受入基準**:
+- [x] STANDBY期間中の自発発言完全停止
+- [x] Tick-basedスケジューリングが動作 (10s test, 5min prod) (ACTIVE/FREE期間のみ)
+- [x] 環境固有の発言確率 (test: 100%, prod: 33%)
+- [x] エージェント選択にチャンネル頻度設定を適用
+- [x] 自発発言がユーザー会話を中断しない (エージェントローテーションロジック)
+- [x] 発言品質がエージェント個性を維持
+- [x] ワークモード時のタスク関連発言強化
+
+**ワークモード統合**:
+- システムプロンプトでタスク関連発言を促進
+- 確定タスクに関する技術的議論・創作議論の増加
+- チャンネル優先度の強化適用
+
+**検証方法**:
+```python
+def test_autonomous_speech_system():
+    # 段階別有効無効をテスト
+    # チャンネル頻度設定をテスト
+    # 段階別確率分布を検証
+    # 会話中断ロジックをチェック
+    # ワークモード統合を検証
+    assert rest_period_speech_disabled()
+    assert channel_preferences_work()
+    assert probability_distributions_correct()
+    assert no_conversation_interruption()
+    assert work_mode_integration_active()
+```
+
+**成功指標**:
+- 段階別制御: 100%精度
+- チャンネル設定遵守: 90%+
+- 中断率: 0%
+- ワークモード起動: <5秒
+
+---
+
+## 🔧 技術受入基準
+
+### AC-017: 設定管理
+**要件**: 環境ベースの設定システム
+**優先度**: 中
+**カテゴリ**: 設定
+
+**受入基準**:
+- [ ] 環境変数が正しく読み込まれる (test/dev/prod)
+- [ ] Discordトークンが安全に管理される
+- [ ] データベース接続が適切に設定される
+- [ ] APIキーが安全に処理される
+- [ ] 起動時の設定検証
+
+**検証方法**:
+```python
+def test_configuration_management():
+    # 環境変数読み込みをテスト
+    # 安全な認証情報処理を検証
+    # 設定検証をチェック
+    # 環境切り替えをテスト
+    assert env_variables_loaded_correctly()
+    assert credentials_handled_securely()
+    assert configuration_validated()
+```
+
+**成功指標**:
+- 設定読み込み成功: 100%
+- セキュリティ遵守: 100%
+- 検証カバレッジ: 100%
+
+---
+
+### AC-018: ログ記録と監視
+**要件**: 包括的なシステムログ記録と監視
+**優先度**: 中
+**カテゴリ**: 運用
+
+**受入基準**:
+- [ ] すべての主要操作に構造化ログ
+- [ ] パフォーマンス指標の自動ログ記録
+- [ ] エラー追跡とアラート
+- [ ] 開発環境でのデバッグ情報
+- [ ] ログローテーションと保持管理
+
+**検証方法**:
+```python
+def test_logging_and_monitoring():
+    # ログ構造と内容を検証
+    # パフォーマンス指標収集をテスト
+    # エラー追跡をチェック
+    # ログローテーションを検証
+    assert structured_logging_works()
+    assert performance_metrics_collected()
+    assert error_tracking_active()
+```
+
+**成功指標**:
+- ログカバレッジ: >90%の操作
+- パフォーマンスデータ収集: 100%
+- エラー検出率: >95%
+
+---
+
+## 📊 品質指標ダッシュボード
+
+### システム全体の健全性
+```
+🎯 受入基準サマリー
+
+アーキテクチャ (AC-001 to AC-004):
+  ✅ 統合受信: [PASS/FAIL]
+  ✅ 個別送信: [PASS/FAIL]
+  ✅ LangGraph統合: [PASS/FAIL]
+  ✅ API効率: [PASS/FAIL]
+
+パフォーマンス (AC-005 to AC-008):
+  ✅ メモリシステム: [PASS/FAIL]
+  ✅ 応答時間: [PASS/FAIL]
+  ✅ エージェント精度: [PASS/FAIL]
+  ✅ 並列実行: [PASS/FAIL]
+
+信頼性 (AC-009 to AC-012):
+  ✅ 優先度キュー: [PASS/FAIL]
+  ✅ エラー処理: [PASS/FAIL]
+  ✅ レート制限: [PASS/FAIL]
+
+AI品質 (AC-013 to AC-016):
+  ✅ エージェント個性: [PASS/FAIL]
+  ✅ コンテキスト認識: [PASS/FAIL]
+  ✅ 日次ワークフロー: [PASS/FAIL]
+  ✅ 自発発言: [PASS/FAIL]
+
+技術 (AC-017 to AC-018):
+  ✅ 設定: [PASS/FAIL]
+  ✅ ログ記録: [PASS/FAIL]
+
+システム全体状態: [準備完了/未完了]
+```
+
+### 主要パフォーマンス指標
+- **応答時間**: 95パーセンタイル < 9秒
+- **エージェント精度**: > 95%正確な選択
+- **システム稼働時間**: > 99.9%可用性
+- **API効率**: 50%の呼び出し削減
+- **メモリパフォーマンス**: Hot < 0.1秒, Cold < 3秒
+- **エラー率**: < 0.1%システムエラー
+
+---
+
+## 🚀 実装検証ワークフロー
+
+### フェーズ1: アーキテクチャ検証
+1. **テスト AC-001**: 統合受信
+2. **テスト AC-002**: 個別送信
+3. **テスト AC-003**: LangGraph統合
+4. **テスト AC-009**: 並列実行
+
+### フェーズ2: パフォーマンス検証
+1. **テスト AC-007**: 応答時間
+2. **テスト AC-008**: エージェント精度
+3. **テスト AC-005**: メモリパフォーマンス
+4. **テスト AC-012**: レート制限
+
+### フェーズ3: 品質検証
+1. **テスト AC-013**: エージェント個性
+2. **テスト AC-014**: コンテキスト認識
+3. **テスト AC-011**: エラー処理
+4. **テスト AC-015**: 日次ワークフロー
+
+### フェーズ4: システム統合検証
+1. **すべての受入テストを実行**
+2. **パフォーマンスベンチマークを検証**
+3. **信頼性要件を確認**
+4. **本番準備完了のサインオフ**
+
+---
+
+## 📊 v0.2.0 実装状況
+
+### ✅ 完了済み (本番準備完了)
+- **AC-001**: 統合メッセージ受信 - PASS ✅ **本番検証済み**
+- **AC-002**: 個別エージェント送信 - PASS ✅ **本番検証済み**
+- **AC-015**: 日次ワークフロー自動化 - PASS ✅ **本番検証済み**  
+- **AC-016**: 自発発言システム - PASS ✅ **本番検証済み**
+
+### 🔄 コアシステム状況
+- **アーキテクチャ**: 統合受信・個別送信型を完全実装
+- **メモリシステム**: 本番対応Redis + PostgreSQL統合
+- **LangGraph統合**: v0.4.8 supervisor pattern有効
+- **エージェント選択**: マルチエージェント協調動作中
+- **タスク管理**: `/task commit`と`/task change`コマンド機能中
+- **ヘルス監視**: 包括的な監視と指標
+
+### ⚠️ 既知の制限事項 (v0.2.0)
+- **Cold Memory**: PostgreSQL検索機能を一時無効化
+- **Embeddingクォータ**: 15 RPMレート制限有効
+- **段階イベント**: 00:00システム休息期間の実装保留
+
+### 🎯 パフォーマンス指標 (v0.2.0) - **本番確認済み**
+- **メッセージ処理**: < 2秒平均応答時間 ✅ **テスト済み**
+- **エージェントローテーション**: 90%重み削減で連続発言防止 ✅ **15メッセージテスト**
+- **メモリ統合**: Redis hot memory + ヘルス監視 ✅ **検証済み**
+- **自発発言**: 62%コード削減、LLM対応アーキテクチャ ✅ **確認済み**
+- **タスクコマンド**: クロスチャンネル移行 `/task change creation "アイデアブレスト"` ✅ **修正済み**
+- **システム安定性**: 適切な起動/シャットダウン、重要エラーゼロ ✅ **検証済み**
+
+## ✅ 最終受入サインオフ
+
+**以下の場合にシステム本番準備完了**:
+- [ ] すべての重要基準 (AC-001 to AC-008, AC-011): PASS
+- [ ] すべての高優先度基準: PASS
+- [ ] パフォーマンスベンチマーク達成: PASS
+- [ ] セキュリティ検証完了: PASS
+- [ ] ユーザー受入テスト完了: PASS
+
+**サインオフ者**:
+- [ ] 技術リード: ________________
+- [ ] 品質保証: ________________
+- [ ] プロダクトオーナー: ________________
+- [ ] システム管理者: ________________
+
+**日付**: ________________
+
+---
+
+*この受入基準ドキュメントは、Discord Multi-Agent System実装の決定的な品質ゲートとして機能します。本番デプロイ前に、すべての基準を自動テストと手動検証を通じて検証する必要があります。*

@@ -14,7 +14,7 @@ from typing import Dict, List, Any
 from datetime import datetime, timedelta
 
 # テスト対象をインポート
-from src.memory_system import DiscordMemorySystem, MemoryItem, create_memory_system
+from src.memory_system_improved import ImprovedDiscordMemorySystem as DiscordMemorySystem, MemoryItem, create_improved_memory_system as create_memory_system
 
 
 class TestMemoryItem:
@@ -400,7 +400,7 @@ if __name__ == "__main__":
     
     # Memory System実装確認
     try:
-        from src.memory_system import DiscordMemorySystem
+        from src.memory_system_improved import ImprovedDiscordMemorySystem as DiscordMemorySystem
         print("✅ Memory System tests ready: DiscordMemorySystem available")
     except ImportError as e:
         print(f"❌ Memory System test requirements not met: {e}")

@@ -8,7 +8,7 @@ import asyncio
 import time
 from typing import List
 from src.embedding_client import GoogleEmbeddingClient
-from src.memory_system import DiscordMemorySystem
+from src.memory_system_improved import ImprovedDiscordMemorySystem as DiscordMemorySystem
 
 
 class EmbeddingUsageDemo:

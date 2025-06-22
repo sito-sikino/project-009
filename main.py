@@ -59,7 +59,7 @@ class DiscordMultiAgentSystem:
             format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
             handlers=[
                 logging.StreamHandler(sys.stdout),
-                logging.FileHandler('discord_agent.log')
+                logging.FileHandler('logs/discord_agent.log')
             ]
         )
         self.logger = logging.getLogger(__name__)
@@ -132,10 +132,10 @@ class DiscordMultiAgentSystem:
         
         # Channel IDs（クラス変数として保存）
         self.channel_ids = {
-            "command_center": int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '1383963657137946664')),
-            "lounge": int(os.getenv('LOUNGE_CHANNEL_ID', '1383966355962990653')),
-            "development": int(os.getenv('DEVELOPMENT_CHANNEL_ID', '1383968516033478727')),
-            "creation": int(os.getenv('CREATION_CHANNEL_ID', '1383981653046726728'))
+            "command_center": int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '0')),
+            "lounge": int(os.getenv('LOUNGE_CHANNEL_ID', '0')),
+            "development": int(os.getenv('DEVELOPMENT_CHANNEL_ID', '0')),
+            "creation": int(os.getenv('CREATION_CHANNEL_ID', '0'))
         }
         
         # Daily Workflow System
