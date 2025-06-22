@@ -13,8 +13,8 @@ import json
 from datetime import datetime, timedelta
 from typing import Dict, List, Any
 
-from src.memory_system_improved import ImprovedDiscordMemorySystem as DiscordMemorySystem, create_improved_memory_system as create_memory_system
-from src.langgraph_supervisor import AgentSupervisor
+from src.infrastructure.memory_system import ImprovedDiscordMemorySystem as DiscordMemorySystem, create_improved_memory_system as create_memory_system
+from src.agents.supervisor import AgentSupervisor
 
 
 class TestMemorySystemIntegration:

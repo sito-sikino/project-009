@@ -15,12 +15,12 @@ import discord
 
 # テスト対象をインポート（統合テストなので実装済みコンポーネント）
 try:
-    from src.discord_clients import ReceptionClient
-    from src.message_processor import PriorityQueue
-    from src.langgraph_supervisor import AgentSupervisor
-    from src.gemini_client import GeminiClient
-    from src.output_bots import SpectraBot, LynQBot, PazBot
-    from src.message_router import MessageRouter
+    from src.bots.reception import ReceptionClient
+    from src.core.message_processor import PriorityQueue
+    from src.agents.supervisor import AgentSupervisor
+    from src.infrastructure.gemini_client import GeminiClient
+    from src.bots.output_bots import SpectraBot, LynQBot, PazBot
+    from src.infrastructure.message_router import MessageRouter
 except ImportError as e:
     # 統合テスト用に未実装コンポーネントをスキップ
     pytest.skip(f"Integration test dependencies not available: {e}", allow_module_level=True)
@@ -437,10 +437,10 @@ if __name__ == "__main__":
     
     # 基本的な統合可能性チェック
     try:
-        from src.discord_clients import ReceptionClient
-        from src.langgraph_supervisor import AgentSupervisor
-        from src.output_bots import SpectraBot
-        from src.message_router import MessageRouter
+        from src.bots.reception import ReceptionClient
+        from src.agents.supervisor import AgentSupervisor
+        from src.bots.output_bots import SpectraBot
+        from src.infrastructure.message_router import MessageRouter
         print("✅ 統合テスト実行可能: 全コンポーネント利用可能")
     except ImportError as e:
         print(f"❌ 統合テスト要件不足: {e}")

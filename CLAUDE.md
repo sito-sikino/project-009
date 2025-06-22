@@ -63,25 +63,28 @@ project-009/
 ├── README.md                    # GitHub project overview  
 ├── main.py                      # System entry point (simplified)
 ├── src/                         # Clean Architecture components
-│   ├── core/                    # Business Logic Layer
-│   │   ├── application.py       # Main application orchestration
+│   ├── container/               # 🔧 Dependency Injection Layer
+│   │   └── system_container.py # DI Container for component management
+│   ├── application/             # 🎯 Application Service Layer
+│   │   └── discord_app_service.py # High-level business orchestration
+│   ├── core/                    # 🏛️ Business Logic Layer
 │   │   ├── message_processor.py # Message processing queue
 │   │   └── daily_workflow.py    # Workflow management
-│   ├── bots/                    # Discord Interface Layer
-│   │   ├── reception.py         # Reception bot (unified receiver)
-│   │   └── output_bots.py       # 3 individual sender bots
-│   ├── agents/                  # Agent Logic Layer
+│   ├── agents/                  # 🤖 Agent Logic Layer
 │   │   ├── supervisor.py        # LangGraph agent selection
 │   │   └── autonomous_speech.py # 10s/5min autonomous messaging
-│   ├── infrastructure/          # External Services Layer
-│   │   ├── discord_manager.py   # Discord connection management
+│   ├── bots/                    # 💬 Discord Interface Layer
+│   │   ├── reception.py         # Reception bot (unified receiver)
+│   │   └── output_bots.py       # 3 individual sender bots
+│   ├── infrastructure/          # 🔌 External Services Layer
 │   │   ├── memory_system.py     # Redis + PostgreSQL integration
 │   │   ├── gemini_client.py     # Gemini API client
-│   │   └── message_router.py    # Message routing logic
-│   ├── config/                  # Configuration Layer
-│   │   ├── settings.py          # Environment configuration
-│   │   └── channels.py          # Channel management
-│   └── utils/                   # Utility Layer
+│   │   ├── embedding_client.py  # Text embedding API client
+│   │   ├── message_router.py    # Message routing logic
+│   │   └── system_lifecycle.py  # System lifecycle management
+│   ├── config/                  # ⚙️ Configuration Layer
+│   │   └── settings.py          # Environment configuration
+│   └── utils/                   # 🛠️ Utility Layer
 │       ├── logger.py            # Logging configuration
 │       ├── health.py            # Health monitoring
 │       └── monitoring.py        # Performance monitoring

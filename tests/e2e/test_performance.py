@@ -16,12 +16,12 @@ from typing import Dict, Any, List
 
 # テスト対象システム
 try:
-    from src.discord_clients import ReceptionClient
-    from src.message_processor import PriorityQueue
-    from src.langgraph_supervisor import AgentSupervisor
-    from src.gemini_client import GeminiClient
-    from src.output_bots import SpectraBot, LynQBot, PazBot
-    from src.message_router import MessageRouter
+    from src.bots.reception import ReceptionClient
+    from src.core.message_processor import PriorityQueue
+    from src.agents.supervisor import AgentSupervisor
+    from src.infrastructure.gemini_client import GeminiClient
+    from src.bots.output_bots import SpectraBot, LynQBot, PazBot
+    from src.infrastructure.message_router import MessageRouter
 except ImportError as e:
     pytest.skip(f"Performance test dependencies not available: {e}", allow_module_level=True)
 
@@ -439,8 +439,8 @@ if __name__ == "__main__":
     
     # パフォーマンステスト実行可能性チェック
     try:
-        from src.langgraph_supervisor import AgentSupervisor
-        from src.output_bots import SpectraBot
+        from src.agents.supervisor import AgentSupervisor
+        from src.bots.output_bots import SpectraBot
         print("✅ Performance tests ready: All components available")
     except ImportError as e:
         print(f"❌ Performance test requirements not met: {e}")

@@ -9,6 +9,7 @@ import os
 from typing import Dict, Any, Optional
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_core.messages import SystemMessage, HumanMessage
+from ..config.settings import get_discord_settings
 
 
 class GeminiClient:
@@ -31,6 +32,9 @@ class GeminiClient:
         self.api_key = api_key or os.getenv('GEMINI_API_KEY')
         if not self.api_key:
             raise ValueError("GEMINI_API_KEY is required")
+        
+        # Discord設定取得
+        self.discord_settings = get_discord_settings()
         
         # ChatGoogleGenerativeAI初期化
         self.llm = ChatGoogleGenerativeAI(
@@ -99,14 +103,16 @@ class GeminiClient:
         hot_memory = context.get('hot_memory', [])
         cold_memory = context.get('cold_memory', [])
         
-        # メンション処理
+        # メンション処理（環境変数から動的取得）
+        bot_ids = self.discord_settings.bot_ids
         mention_override = ""
-        if '<@1364657009009627237>' in message:  # LynQ ID
+        
+        if f'<@{bot_ids["lynq"]}>' in message:
             mention_override = "\n**重要**: このメッセージはLYNQに向けられています。LYNQを選択してください。"
-        elif '<@1383050248280346685>' in message:  # Paz ID  
+        elif f'<@{bot_ids["paz"]}>' in message:
             mention_override = "\n**重要**: このメッセージはPAZに向けられています。PAZを選択してください。"
-        elif '<@1364635447225225286>' in message:  # Spectra ID
-            mention_override = "\n**重要**: このメッセージはSPECTRAに向けられています。SPECTRAを選択してください。"
+        elif f'<@{bot_ids["spectra"]}>' in message:
+            mention_override = "\n**重要**: このメッセージはSPECTRAに向けられています。SPECTRAを選択してください."
         
         # メモリコンテキスト構築
         memory_context = ""
@@ -125,14 +131,19 @@ class GeminiClient:
 以下のメッセージに対して、最適なエージェント選択と応答内容を同時に生成してください。
 
 ## エージェント特性:
-- **SPECTRA** (ID: 1364635447225225286): メタ進行役、議論の構造化、全体方針整理、一般対話
-- **LYNQ** (ID: 1364657009009627237): 論理収束役、技術的検証、構造化分析、問題解決
-- **PAZ** (ID: 1383050248280346685): 発散創造役、革新的アイデア、創造的テーマ、ブレインストーミング
+- **SPECTRA**: メタ進行役、議論の構造化、全体方針整理、一般対話を担当
+- **LYNQ**: 論理収束役、技術的検証、構造化分析、問題解決を担当  
+- **PAZ**: 発散創造役、革新的アイデア、創造的テーマ、ブレインストーミングを担当
 
 ## ユーザーメッセージ:
 {message}{mention_override}
 
 {memory_context}
+
+## 応答生成指針:
+- 選択されたエージェントの個性を活かした自然な応答を生成
+- ユーザーへの返答では親しみやすい表現を使用
+- Discord特有の技術的な識別子（<@数字>形式）は応答に含めない
 
 ## 出力形式:
 以下のJSON形式で回答してください:

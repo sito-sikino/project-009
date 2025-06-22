@@ -10,6 +10,7 @@ AC-015: Daily Workflow Automation の実装
 """
 import asyncio
 import logging
+import os
 from datetime import datetime, time, timedelta
 from typing import Dict, Optional, Callable
 import json
@@ -458,11 +459,12 @@ def create_daily_workflow_system(channel_ids: Dict[str, int]) -> DailyWorkflowSy
 if __name__ == "__main__":
     # テスト実行
     async def test_daily_workflow():
+        # テスト用チャンネルID（実際の値は環境変数から取得）
         channel_ids = {
-            "command_center": 1383963657137946664,
-            "lounge": 1383966355962990653,
-            "development": 1383968516033478727,
-            "creation": 1383981653046726728
+            "command_center": int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '0')),
+            "lounge": int(os.getenv('LOUNGE_CHANNEL_ID', '0')),
+            "development": int(os.getenv('DEVELOPMENT_CHANNEL_ID', '0')),
+            "creation": int(os.getenv('CREATION_CHANNEL_ID', '0'))
         }
         
         workflow = DailyWorkflowSystem(channel_ids)

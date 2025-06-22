@@ -107,12 +107,13 @@ class PrometheusMetrics:
     """Prometheus メトリクス管理"""
     
     def __init__(self, registry: Optional[CollectorRegistry] = None):
-        self.registry = registry or CollectorRegistry()
-        
         if not PROMETHEUS_AVAILABLE:
+            self.registry = None
             self.logger = logging.getLogger(__name__)
             self.logger.warning("Prometheus client not available - metrics disabled")
             return
+        
+        self.registry = registry or CollectorRegistry()
         
         # Memory System メトリクス
         self.memory_operations_total = Counter(

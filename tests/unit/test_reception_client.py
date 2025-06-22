@@ -12,8 +12,8 @@ import discord
 
 # テスト対象をインポート（まだ存在しないため失敗する）
 try:
-    from src.discord_clients import ReceptionClient
-    from src.message_processor import PriorityQueue
+    from src.bots.reception import ReceptionClient
+    from src.core.message_processor import PriorityQueue
 except ImportError:
     # TDD Red Phase: 実装前なのでインポートエラーは期待通り
     ReceptionClient = None
@@ -192,13 +192,13 @@ if __name__ == "__main__":
     
     # 基本的なインポートテスト
     try:
-        from src.discord_clients import ReceptionClient
+        from src.bots.reception import ReceptionClient
         print("❌ 予期しない成功: ReceptionClientが既に存在")
     except ImportError:
         print("✅ 期待通りの失敗: ReceptionClientはまだ実装されていません")
     
     try:
-        from src.message_processor import PriorityQueue
+        from src.core.message_processor import PriorityQueue
         print("❌ 予期しない成功: PriorityQueueが既に存在")
     except ImportError:
         print("✅ 期待通りの失敗: PriorityQueueはまだ実装されていません")

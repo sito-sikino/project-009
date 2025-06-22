@@ -6,7 +6,7 @@ import pytest
 import asyncio
 import os
 from unittest.mock import Mock, patch, AsyncMock
-from src.embedding_client import GoogleEmbeddingClient, create_embedding_client
+from src.infrastructure.embedding_client import GoogleEmbeddingClient, create_embedding_client
 
 
 class TestGoogleEmbeddingClient:

@@ -204,13 +204,16 @@ class AutonomousSpeechSystem:
         while self.is_running:
             try:
                 # tick間隔待機
+                logger.info(f"⏱️ Waiting {self.tick_interval} seconds for next autonomous speech check...")
                 await asyncio.sleep(self.tick_interval)
+                logger.info("⏰ Autonomous speech tick triggered!")
                 
                 # 確率判定
                 if random.random() <= self.speech_probability:
+                    logger.info(f"🎲 Speech probability check passed: {self.speech_probability * 100:.0f}%")
                     await self._execute_autonomous_speech()
                 else:
-                    logger.debug(f"🎲 Speech probability check failed: {self.speech_probability * 100:.0f}%")
+                    logger.info(f"🎲 Speech probability check failed: {self.speech_probability * 100:.0f}%")
                     
             except Exception as e:
                 logger.error(f"❌ Autonomous speech loop error: {e}")
@@ -223,19 +226,21 @@ class AutonomousSpeechSystem:
             current_phase = self._get_current_phase()
             
             # フェーズ別の発言可否チェック
+            logger.info(f"🔍 Current phase: {current_phase}")
             if current_phase == WorkflowPhase.STANDBY:
-                logger.debug("🚫 STANDBY期間中のため自発発言をスキップ")
+                logger.info("🚫 STANDBY期間中のため自発発言をスキップ")
                 return
                 
             # 利用可能なチャンネル取得
             available_channel = self._get_available_channel(current_phase)
+            logger.info(f"🔍 Available channel: {available_channel}")
             if not available_channel:
-                logger.debug("🚫 利用可能なチャンネルがないため自発発言をスキップ")
+                logger.info("🚫 利用可能なチャンネルがないため自発発言をスキップ")
                 return
                 
             # ワークフローイベント実行中チェック
             if self._is_workflow_event_active():
-                logger.debug("⏰ ワークフローイベント実行中のため自発発言をスキップ")
+                logger.info("⏰ ワークフローイベント実行中のため自発発言をスキップ")
                 return
                 
             # LLM統合メッセージ生成（エージェント選択も含む）
@@ -275,21 +280,56 @@ class AutonomousSpeechSystem:
             return WorkflowPhase.STANDBY
             
     def _get_available_channel(self, phase: WorkflowPhase) -> Optional[str]:
-        """フェーズに応じた利用可能チャンネル取得"""
+        """フェーズに応じた利用可能チャンネルID取得（詳細診断版）"""
+        logger.info(f"🔍 _get_available_channel called with phase: {phase}")
+        logger.info(f"🔍 workflow_system: {self.workflow_system}")
+        
         # タスク実行中チェック
         if self.workflow_system and hasattr(self.workflow_system, 'current_tasks'):
             active_tasks = self.workflow_system.current_tasks
+            logger.info(f"🔍 Active tasks: {active_tasks}")
             if active_tasks:
                 # タスクチャンネルを優先
                 for task_info in active_tasks.values():
-                    return task_info.get('channel')
+                    channel_name = task_info.get('channel')
+                    if channel_name:
+                        logger.info(f"🔍 Task channel found: {channel_name}")
+                        return self._get_channel_id_by_name(channel_name)
         
-        # フェーズ別デフォルトチャンネル
-        if phase == WorkflowPhase.ACTIVE:
-            return "command_center"
-        elif phase == WorkflowPhase.FREE:
-            return "lounge"
+        # フェーズ別デフォルトチャンネル（文字列値比較で確実性確保）
+        logger.info(f"🔍 Phase-based channel selection: {phase} (value: {phase.value})")
+        if phase.value == "active":
+            logger.info("🔍 ACTIVE phase -> command_center")
+            return self._get_channel_id_by_name("command_center")
+        elif phase.value == "free":
+            logger.info("🔍 FREE phase -> lounge")
+            return self._get_channel_id_by_name("lounge")
+        elif phase.value == "standby":
+            logger.info("🔍 STANDBY phase -> no autonomous speech")
+        else:
+            logger.info(f"🔍 Unknown phase value: {phase} ({phase.value})")
         
+        logger.info("🔍 No channel found, returning None")
+        return None
+    
+    def _get_channel_id_by_name(self, channel_name: str) -> Optional[str]:
+        """チャンネル名からチャンネルIDを取得（フォールバック機能付き）"""
+        logger.info(f"🔍 All available channel_ids: {self.channel_ids}")
+        
+        channel_id = self.channel_ids.get(channel_name)
+        if channel_id and channel_id > 0:
+            logger.info(f"✅ Channel mapping: {channel_name} -> {channel_id}")
+            return str(channel_id)
+        
+        # フォールバック: loungeが無い場合はcommand_centerを使用
+        if channel_name == "lounge":
+            logger.warning(f"⚠️ 'lounge' channel not found, falling back to 'command_center'")
+            fallback_id = self.channel_ids.get("command_center")
+            if fallback_id and fallback_id > 0:
+                logger.info(f"✅ Fallback mapping: lounge -> command_center ({fallback_id})")
+                return str(fallback_id)
+        
+        logger.error(f"❌ Channel ID not found for '{channel_name}': {self.channel_ids}")
         return None
         
     def _is_workflow_event_active(self) -> bool:
@@ -416,7 +456,7 @@ class AutonomousSpeechSystem:
                 self.id = "000000000000000000"
         
         message_data = {
-            'message': AutonomousMessage(message, self.channel_ids.get(channel, 0), agent),
+            'message': AutonomousMessage(message, int(channel), agent),
             'priority': 5,  # 自発発言は低優先度
             'timestamp': datetime.now()
         }

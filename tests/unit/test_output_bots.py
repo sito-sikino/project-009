@@ -13,8 +13,8 @@ import discord
 
 # テスト対象をインポート（まだ存在しないため失敗する）
 try:
-    from src.output_bots import OutputBot, SpectraBot, LynQBot, PazBot
-    from src.message_router import MessageRouter
+    from src.bots.output_bots import OutputBot, SpectraBot, LynQBot, PazBot
+    from src.infrastructure.message_router import MessageRouter
 except ImportError:
     # TDD Red Phase: 実装前なのでインポートエラーは期待通り
     OutputBot = None
@@ -314,13 +314,13 @@ if __name__ == "__main__":
     
     # 基本的なインポートテスト
     try:
-        from src.output_bots import OutputBot
+        from src.bots.output_bots import OutputBot
         print("❌ 予期しない成功: OutputBotが既に存在")
     except ImportError:
         print("✅ 期待通りの失敗: OutputBotはまだ実装されていません")
     
     try:
-        from src.message_router import MessageRouter
+        from src.infrastructure.message_router import MessageRouter
         print("❌ 予期しない成功: MessageRouterが既に存在")
     except ImportError:
         print("✅ 期待通りの失敗: MessageRouterはまだ実装されていません")

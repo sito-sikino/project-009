@@ -12,8 +12,8 @@ from typing import Dict, Any, List
 
 # テスト対象をインポート（まだ存在しないため失敗する）
 try:
-    from src.langgraph_supervisor import AgentSupervisor, AgentState
-    from src.gemini_client import GeminiClient
+    from src.agents.supervisor import AgentSupervisor, AgentState
+    from src.infrastructure.gemini_client import GeminiClient
 except ImportError:
     # TDD Red Phase: 実装前なのでインポートエラーは期待通り
     AgentSupervisor = None
@@ -249,13 +249,13 @@ if __name__ == "__main__":
     
     # 基本的なインポートテスト
     try:
-        from src.langgraph_supervisor import AgentSupervisor
+        from src.agents.supervisor import AgentSupervisor
         print("❌ 予期しない成功: AgentSupervisorが既に存在")
     except ImportError:
         print("✅ 期待通りの失敗: AgentSupervisorはまだ実装されていません")
     
     try:
-        from src.gemini_client import GeminiClient
+        from src.infrastructure.gemini_client import GeminiClient
         print("❌ 予期しない成功: GeminiClientが既に存在")
     except ImportError:
         print("✅ 期待通りの失敗: GeminiClientはまだ実装されていません")
