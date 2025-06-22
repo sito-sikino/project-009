@@ -19,17 +19,17 @@ load_dotenv()
 # プロジェクトルートをPythonパスに追加
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-from src.discord_clients import ReceptionClient
-from src.message_processor import PriorityQueue
-from src.langgraph_supervisor import AgentSupervisor
-from src.gemini_client import GeminiClient
-from src.output_bots import SpectraBot, LynQBot, PazBot
-from src.message_router import MessageRouter
-from src.memory_system_improved import ImprovedDiscordMemorySystem, create_improved_memory_system
-from src.monitoring import performance_monitor, monitor_performance
-from src.health_api import setup_health_monitoring
-from src.daily_workflow import DailyWorkflowSystem
-from src.autonomous_speech import AutonomousSpeechSystem
+from src.bots.reception import ReceptionClient
+from src.core.message_processor import PriorityQueue
+from src.agents.supervisor import AgentSupervisor
+from src.infrastructure.gemini_client import GeminiClient
+from src.bots.output_bots import SpectraBot, LynQBot, PazBot
+from src.infrastructure.message_router import MessageRouter
+from src.infrastructure.memory_system import ImprovedDiscordMemorySystem, create_improved_memory_system
+from src.utils.monitoring import performance_monitor, monitor_performance
+from src.utils.health import setup_health_monitoring
+from src.core.daily_workflow import DailyWorkflowSystem
+from src.agents.autonomous_speech import AutonomousSpeechSystem
 from datetime import datetime
 
 
@@ -144,7 +144,7 @@ class DiscordMultiAgentSystem:
         
         # Autonomous Speech System (統合版)
         environment = os.getenv('ENVIRONMENT', 'production')
-        from src.autonomous_speech import AutonomousSpeechSystem
+        from src.agents.autonomous_speech import AutonomousSpeechSystem
         self.autonomous_speech = AutonomousSpeechSystem(self.channel_ids, environment, self.daily_workflow, self.priority_queue)
         self.logger.info("✅ 統合版 Autonomous Speech System initialized")
         

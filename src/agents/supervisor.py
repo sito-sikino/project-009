@@ -8,7 +8,7 @@ from typing import Dict, Any, List, TypedDict, Annotated
 from langgraph.graph import StateGraph, add_messages
 from langgraph.graph.graph import CompiledGraph
 
-from .gemini_client import GeminiClient
+from ..infrastructure.gemini_client import GeminiClient
 
 
 class AgentState(TypedDict):

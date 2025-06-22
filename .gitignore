@@ -43,9 +43,10 @@ htmlcov/
 .env
 .env.local
 
-# Logs
+# Logs (Keep structure, ignore content)
 *.log
-logs/
+logs/*.log
+logs/archive/
 
 # Database
 *.db
@@ -54,3 +55,17 @@ logs/
 # Discord Bot specific
 bot_data/
 temp/
+
+# v0.2.2 Clean Architecture - Context pollution prevention
+archive/
+backup/
+*_backup.*
+*_old.*
+*_legacy.*
+.DS_Store
+Thumbs.db
+
+# Development artifacts
+*.tmp
+*.bak
+*.orig

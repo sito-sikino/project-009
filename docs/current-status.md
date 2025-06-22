@@ -1,10 +1,10 @@
 # 現在の状況 - Discord Multi-Agent System
 
-## 📊 バージョン: v0.2.0 - 本番準備完了 ✅
+## 📊 バージョン: v0.2.2 - Clean Architecture リファクタリング進行中 ⚙️
 
-**リリース日**: 2025-06-21  
-**状況**: 本番検証済み  
-**最終更新**: 2025-06-21 13:50 JST  
+**リリース日**: 2025-06-22  
+**状況**: Clean Architecture実装中（機能完全維持）  
+**最終更新**: 2025-06-22 JST  
 
 ## 🎯 概要
 
@@ -48,18 +48,25 @@ ENVIRONMENT=production  # または test
 LOG_LEVEL=INFO
 ```
 
-### **ファイル構造**
+### **ファイル構造（v0.2.2 Clean Architecture）**
 ```
 project-009/
-├── main.py                    # システムエントリーポイント
-├── src/                       # コアシステムコンポーネント
-├── logs/discord_agent.log     # 単一統合ログ
-├── CLAUDE.md                  # プロジェクトガイド（このファイル参照）
-├── CURRENT_STATUS.md          # このファイル
-├── DEPLOYMENT_GUIDE.md        # 運用マニュアル
-├── TESTING_GUIDE.md           # テスト手順
-├── ACCEPTANCE_CRITERIA.md     # 要件リファレンス
-└── ROADMAP.md                 # v0.3.0実装計画
+├── main.py                      # システムエントリーポイント（簡素化予定）
+├── src/                         # Clean Architecture構造
+│   ├── core/                    # ビジネスロジック層
+│   ├── bots/                    # Discord インターフェース層
+│   ├── agents/                  # エージェント層
+│   ├── infrastructure/          # 外部サービス層
+│   ├── config/                  # 設定層
+│   └── utils/                   # ユーティリティ層
+├── docs/                        # ドキュメント（最小限）
+│   ├── current-status.md        # このファイル
+│   ├── deployment-guide.md      # 運用マニュアル
+│   ├── testing-guide.md         # テスト手順
+│   ├── acceptance-criteria.md   # 要件リファレンス
+│   └── roadmap.md              # 実装ロードマップ
+├── logs/discord_agent.log       # 単一統合ログ
+└── CLAUDE.md                    # プロジェクトガイド
 ```
 
 ## 🚀 **システムコンポーネント**

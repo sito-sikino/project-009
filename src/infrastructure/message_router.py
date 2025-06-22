@@ -5,7 +5,7 @@ LangGraph Supervisor → 個別Output Bot配信システム
 
 import asyncio
 from typing import Dict, Any, List, Optional
-from .output_bots import OutputBot
+from ..bots.output_bots import OutputBot
 
 
 class MessageRouter:

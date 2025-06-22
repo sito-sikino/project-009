@@ -17,11 +17,11 @@
 6. **`docs/acceptance-criteria.md`** - Requirements reference (simplified version)
 7. **`docs/roadmap.md`** - Future implementation plans (v0.3.0+)
 
-### 🚨 **NEVER READ THESE** (Archived/Obsolete)
-- `archive/docs_consolidation/` - Old duplicated documents
-- `archive/old_docs_legacy/` - Legacy implementation summaries
-- Any files with dates in names (PROJECT_PROGRESS_v0.2.0.md, etc.)
-- Multiple test checklists
+### 🚨 **NEVER READ THESE** (Removed in v0.2.2)
+- `archive/` - **DELETED** - Old implementation files (95% context pollution source)
+- `venv/` - **Git ignored** - Virtual environment files
+- `logs/*.log` - **Git ignored** - Runtime log files
+- Any files with version numbers in names
 
 ### 🎯 **Claude Code Workflow**
 1. **Always start with**: `docs/current-status.md` (current version & status)
@@ -34,10 +34,10 @@
 
 ## 🚀 Project Overview - Discord Multi-Agent System
 
-### **Current Version**: v0.2.0 (Production Ready)
-- **Status**: Production validated, zero critical bugs
+### **Current Version**: v0.2.2 (Clean Architecture Refactoring)
+- **Status**: Clean Architecture implementation in progress
 - **Architecture**: 統合受信・個別送信型 (Unified Reception, Individual Transmission)
-- **Last Update**: 2025-06-21 13:50 JST
+- **Last Update**: 2025-06-22 JST
 
 ### **Core System**
 - **4 Discord Bots**: Reception + Spectra/LynQ/Paz (output)
@@ -56,29 +56,52 @@
 
 ## 📁 **File Structure & Navigation**
 
-### **Optimized Project Structure (Claude Code v1.0.31)**
+### **Clean Architecture Project Structure (v0.2.2)**
 ```
 project-009/
-├── CLAUDE.md                  # Claude Code guidance (root requirement)
-├── README.md                  # GitHub project overview
-├── main.py                    # System entry point
-├── src/                       # Core system components
-│   ├── discord_clients.py     # Reception bot (unified receiver)
-│   ├── output_bots.py         # 3 individual sender bots
-│   ├── langgraph_supervisor.py # Agent selection logic
-│   ├── autonomous_speech.py   # 10s/5min autonomous messaging
-│   ├── daily_workflow.py      # STANDBY/ACTIVE/FREE phases
-│   ├── memory_system_improved.py # Redis + PostgreSQL
-│   └── message_router.py      # Message distribution
-├── docs/                      # All documentation (standard)
-│   ├── current-status.md      # Current system status
-│   ├── deployment-guide.md    # Operations manual
-│   ├── testing-guide.md       # Test procedures
-│   ├── acceptance-criteria.md # Requirements reference
-│   └── roadmap.md            # v0.3.0 implementation plan
-├── logs/                      # Unified logging
-│   └── discord_agent.log      # Single log file
-└── archive/                   # Historical documents
+├── CLAUDE.md                    # Claude Code guidance (root requirement)
+├── README.md                    # GitHub project overview  
+├── main.py                      # System entry point (simplified)
+├── src/                         # Clean Architecture components
+│   ├── core/                    # Business Logic Layer
+│   │   ├── application.py       # Main application orchestration
+│   │   ├── message_processor.py # Message processing queue
+│   │   └── daily_workflow.py    # Workflow management
+│   ├── bots/                    # Discord Interface Layer
+│   │   ├── reception.py         # Reception bot (unified receiver)
+│   │   └── output_bots.py       # 3 individual sender bots
+│   ├── agents/                  # Agent Logic Layer
+│   │   ├── supervisor.py        # LangGraph agent selection
+│   │   └── autonomous_speech.py # 10s/5min autonomous messaging
+│   ├── infrastructure/          # External Services Layer
+│   │   ├── discord_manager.py   # Discord connection management
+│   │   ├── memory_system.py     # Redis + PostgreSQL integration
+│   │   ├── gemini_client.py     # Gemini API client
+│   │   └── message_router.py    # Message routing logic
+│   ├── config/                  # Configuration Layer
+│   │   ├── settings.py          # Environment configuration
+│   │   └── channels.py          # Channel management
+│   └── utils/                   # Utility Layer
+│       ├── logger.py            # Logging configuration
+│       ├── health.py            # Health monitoring
+│       └── monitoring.py        # Performance monitoring
+├── tests/                       # Test Suite (Clean Architecture)
+│   ├── unit/                    # Unit tests for each layer
+│   ├── integration/             # Integration tests
+│   └── e2e/                     # End-to-end tests
+├── docs/                        # Documentation (MINIMAL)
+│   ├── current-status.md        # Current system status
+│   ├── deployment-guide.md      # Operations manual
+│   ├── testing-guide.md         # Test procedures
+│   ├── acceptance-criteria.md   # Requirements reference
+│   └── roadmap.md              # Implementation roadmap
+├── logs/                        # Unified logging (Git ignored)
+│   └── discord_agent.log        # Single log file
+├── database/                    # Database initialization
+│   └── init/                    # SQL initialization scripts
+├── requirements.txt             # Python dependencies
+├── docker-compose.yml           # Container orchestration
+└── .gitignore                   # Git exclusions
 ```
 
 ### **Operations Commands**
