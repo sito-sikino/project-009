@@ -17,6 +17,10 @@ from typing import Dict, Any, Optional
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
+# .envファイル読み込み
+from dotenv import load_dotenv
+load_dotenv()
+
 # 環境変数設定（テスト用）
 os.environ.setdefault('ENVIRONMENT', 'test')
 os.environ.setdefault('LOG_LEVEL', 'INFO')
