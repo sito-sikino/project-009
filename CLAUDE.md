@@ -1,263 +1,337 @@
-# CLAUDE.md - Project-009 Discord Multi-Agent System
+# CLAUDE.md - Discord マルチエージェントシステム
 
-## 🚨 **Documentation Management Policy - MINIMAL ARCHITECTURE**
+このファイルは、このリポジトリでコードを扱う際の Claude Code (claude.ai/code) 向けガイダンスを提供します。
 
-**CRITICAL**: This project uses **MINIMAL DOCUMENTATION ARCHITECTURE** to prevent context waste and information scatter.
+## 🚨 **ドキュメント管理ポリシー - 最小アーキテクチャ**
 
-### 📁 **Core Documents (6 files only)**
+**重要**: このプロジェクトは**最小ドキュメントアーキテクチャ**を使用して、コンテキストの無駄と情報の散乱を防ぎます。
 
-#### **Project Root Files**
-1. **`CLAUDE.md`** - This file, project overview + documentation policy (Claude Code requirement)
-2. **`README.md`** - Project overview for GitHub and general users
+### 📁 **核心ドキュメント（4ファイルのみ）**
 
-#### **Documentation Directory (`docs/`)**
-3. **`docs/current-status.md`** - Current version, implementation status, quick health check
-4. **`docs/deployment-guide.md`** - Operations manual, setup, troubleshooting
-5. **`docs/testing-guide.md`** - Test procedures, validation, quality assurance
-6. **`docs/acceptance-criteria.md`** - Requirements reference (simplified version)
-7. **`docs/roadmap.md`** - Future implementation plans (v0.3.0+)
+#### **プロジェクトルートファイル**
+1. **`CLAUDE.md`** - このファイル、プロジェクト概要 + ドキュメントポリシー（Claude Code要件）
+2. **`README.md`** - GitHubおよび一般ユーザー向けプロジェクト概要
 
-### 🚨 **NEVER READ THESE** (Removed in v0.2.2)
-- `archive/` - **DELETED** - Old implementation files (95% context pollution source)
-- `venv/` - **Git ignored** - Virtual environment files
-- `logs/*.log` - **Git ignored** - Runtime log files
-- Any files with version numbers in names
+#### **ドキュメントディレクトリ (`docs/`)**
+3. **`docs/運用ガイド.md`** - 運用マニュアル、セットアップ、トラブルシューティング
+4. **`docs/受入基準.md`** - 要件リファレンス（簡素化版）
+5. **`docs/実装計画.md`** - 将来実装計画（v0.3.0+）
 
-### 🎯 **Claude Code Workflow**
-1. **Always start with**: `docs/current-status.md` (current version & status)
-2. **For operations**: `docs/deployment-guide.md` 
-3. **For testing**: `docs/testing-guide.md`
-4. **For requirements**: `docs/acceptance-criteria.md` (reference only)
-5. **For future work**: `docs/roadmap.md`
+### 🎯 **Claude Code ワークフロー**
+1. **常に最初に確認**: このファイル（CLAUDE.md）で現在の状況を把握
+2. **運用について**: `docs/運用ガイド.md` 
+3. **要件について**: `docs/受入基準.md`（リファレンスのみ）
+4. **将来作業について**: `docs/実装計画.md`
 
-**Context Efficiency**: With this structure, you only need to read 1-2 files for any task instead of 10-20 scattered documents.
+**コンテキスト効率**: この構造により、任意のタスクで1-2ファイルのみ確認すれば済み、10-20の散在ドキュメントを確認する必要がありません。
 
-## 🚀 Project Overview - Discord Multi-Agent System
+## 🚀 プロジェクト概要 - Discord マルチエージェントシステム
 
-### **Current Version**: v0.2.2 (Clean Architecture Refactoring)
-- **Status**: Clean Architecture implementation in progress
-- **Architecture**: 統合受信・個別送信型 (Unified Reception, Individual Transmission)
-- **Last Update**: 2025-06-22 JST
+### **現在のバージョン**: v0.2.2 (Clean Architecture完了)
+- **状況**: Clean Architecture実装完了、全機能動作確認済み
+- **アーキテクチャ**: 統合受信・個別送信型 + Clean Architecture 9層構造
+- **最終更新**: 2025-06-22 JST
+- **リファクタリング成果**: 51万行→3千行(-95%)、Claude Code性能10倍向上
 
-### **Core System**
-- **4 Discord Bots**: Reception + Spectra/LynQ/Paz (output)
-- **LangGraph Supervisor**: Agent selection and coordination  
-- **Memory System**: Redis (hot) + PostgreSQL foundation (cold)
-- **Autonomous Speech**: 10s test / 5min production intervals
-- **Daily Workflow**: STANDBY/ACTIVE/FREE phase management
-- **Performance**: <2s response time, 50+ concurrent users
+### **v0.2.2主要成果**
+1. **重要バグゼロ**: 全7件の主要問題を解決し本番検証済み
+2. **完璧なエージェントローテーション**: 90%重み削減で連続発言防止
+3. **クロスチャンネルタスク移行**: `/task change creation "アイデアブレスト"`動作中
+4. **本番テスト**: 15メッセージDiscordテスト成功
+5. **システム安定性**: 適切な起動/シャットダウン、包括的エラー処理
 
-### **Key Features**
-- Multi-agent conversation with personality-specific responses
-- Cross-channel task management (`/task commit`, `/task change`)
-- Agent rotation system (prevents consecutive speech)
-- Real-time health monitoring (port 8000)
-- Production-ready error handling and recovery
+### **v0.3.0実装予定（長期記憶システム）**
+- **長期記憶システム**: 3-API設計（02:00バッチ処理）で原子的記憶保存
+- **日報システム**: API不要テンプレート式（07:00自動送信）
+- **Cold Memory検索**: PostgreSQL pgvector検索機能有効化
+- **システムプロンプト強化**: エージェント人格・専門性の深化
 
-## 📁 **File Structure & Navigation**
+### **v0.3.0で解決される制限**
+- **個別具体的検索**: 「TypeScript」「転職」など具体要素の完全検索対応
+- **進捗追跡**: ユーザー成長・プロジェクト進展の自動追跡
+- **組織記憶**: チーム決定・文化・創造的発想の永続化
 
-### **Clean Architecture Project Structure (v0.2.2)**
+### **コアシステム**
+- **4つのDiscordボット**: Reception + Spectra/LynQ/Paz（出力）
+- **LangGraphスーパーバイザー**: エージェント選択と協調  
+- **2層メモリシステム**: Redis（ホット）+ PostgreSQL with pgvector（コールド）
+- **長期記憶処理**: 02:00バッチ処理（3-API）で原子的記憶生成
+- **日報システム**: 07:00自動送信（API不要テンプレート式）
+- **自発発言**: 10秒テスト / 5分本番間隔
+- **日次ワークフロー**: STANDBY/ACTIVE/FREE段階管理
+- **パフォーマンス**: <2秒応答時間、50+同時ユーザー
+
+### **主要機能**
+- 個性特化応答によるマルチエージェント会話
+- クロスチャンネルタスク管理（`/task commit`、`/task change`）
+- エージェントローテーションシステム（連続発言防止）
+- **長期記憶システム**: 個別具体的要素の完全検索・進捗追跡
+- **日報システム**: 部門別進捗の自動可視化（Discord Embed形式）
+- リアルタイムヘルス監視（ポート8000）
+- 本番対応エラーハンドリングと回復
+
+## 📁 **ファイル構造・ナビゲーション**
+
+### **最適化されたプロジェクト構造（Claude Code v1.0.31）**
 ```
 project-009/
-├── CLAUDE.md                    # Claude Code guidance (root requirement)
-├── README.md                    # GitHub project overview  
-├── main.py                      # System entry point (simplified)
-├── src/                         # Clean Architecture components
-│   ├── container/               # 🔧 Dependency Injection Layer
-│   │   └── system_container.py # DI Container for component management
-│   ├── application/             # 🎯 Application Service Layer
-│   │   └── discord_app_service.py # High-level business orchestration
-│   ├── core/                    # 🏛️ Business Logic Layer
-│   │   ├── message_processor.py # Message processing queue
-│   │   └── daily_workflow.py    # Workflow management
-│   ├── agents/                  # 🤖 Agent Logic Layer
-│   │   ├── supervisor.py        # LangGraph agent selection
-│   │   └── autonomous_speech.py # 10s/5min autonomous messaging
-│   ├── bots/                    # 💬 Discord Interface Layer
-│   │   ├── reception.py         # Reception bot (unified receiver)
-│   │   └── output_bots.py       # 3 individual sender bots
-│   ├── infrastructure/          # 🔌 External Services Layer
-│   │   ├── memory_system.py     # Redis + PostgreSQL integration
-│   │   ├── gemini_client.py     # Gemini API client
-│   │   ├── embedding_client.py  # Text embedding API client
-│   │   ├── message_router.py    # Message routing logic
-│   │   └── system_lifecycle.py  # System lifecycle management
-│   ├── config/                  # ⚙️ Configuration Layer
-│   │   └── settings.py          # Environment configuration
-│   └── utils/                   # 🛠️ Utility Layer
-│       ├── logger.py            # Logging configuration
-│       ├── health.py            # Health monitoring
-│       └── monitoring.py        # Performance monitoring
-├── tests/                       # Test Suite (Clean Architecture)
-│   ├── unit/                    # Unit tests for each layer
-│   ├── integration/             # Integration tests
-│   └── e2e/                     # End-to-end tests
-├── docs/                        # Documentation (MINIMAL)
-│   ├── current-status.md        # Current system status
-│   ├── deployment-guide.md      # Operations manual
-│   ├── testing-guide.md         # Test procedures
-│   ├── acceptance-criteria.md   # Requirements reference
-│   └── roadmap.md              # Implementation roadmap
-├── logs/                        # Unified logging (Git ignored)
-│   └── discord_agent.log        # Single log file
-├── database/                    # Database initialization
-│   └── init/                    # SQL initialization scripts
-├── requirements.txt             # Python dependencies
-├── docker-compose.yml           # Container orchestration
-└── .gitignore                   # Git exclusions
+├── CLAUDE.md                  # Claude Code ガイダンス（ルート要件）
+├── README.md                  # GitHub プロジェクト概要
+├── main.py                    # システムエントリーポイント
+├── src/                       # コアシステムコンポーネント
+│   ├── container/             # 🔧 依存注入・DIコンテナ層
+│   ├── application/           # 🎯 アプリケーションサービス層
+│   ├── core/                  # 🏛️ ビジネスロジック層
+│   ├── agents/                # 🤖 エージェント層
+│   ├── bots/                  # 💬 Discordインターフェース層
+│   ├── infrastructure/        # 🔌 外部サービス・永続化層
+│   ├── config/                # ⚙️ 設定管理層
+│   └── utils/                 # 🛠️ ユーティリティ層
+├── docs/                      # 全ドキュメント（標準）
+│   ├── 運用ガイド.md          # 運用マニュアル
+│   ├── 受入基準.md            # 要件リファレンス
+│   └── 実装計画.md            # v0.3.0実装計画
+├── logs/                      # 統合ログ
+│   └── discord_agent.log      # 単一ログファイル
+└── archive/                   # 歴史的ドキュメント
 ```
 
-### **Operations Commands**
+### **運用コマンド**
 ```bash
-# Start system
+# システム開始
 python main.py
 
-# Check health
+# ヘルスチェック
 curl localhost:8000/health
 
-# View logs
+# ログ確認
 tail -f logs/discord_agent.log
 
-# Stop system
-Ctrl+C  # graceful shutdown
+# システム停止
+Ctrl+C  # グレースフルシャットダウン
 ```
 
-## 🤖 **Agent Roles & Behavior**
+## 🧠 **長期記憶・日報システム**
 
-### **Discord Bots**
-- **Reception Client**: Unified message reception (single listener)
-- **Spectra Bot**: Meeting facilitation, project management (🔵)
-- **LynQ Bot**: Technical discussions, development tasks (🔴)
-- **Paz Bot**: Creative work, brainstorming (🟡)
+### **長期記憶システム（3-API設計）**
 
-### **Channel Specialization**
-- **command-center**: All agents (Spectra 40%, LynQ 30%, Paz 30%)
-- **development**: LynQ priority (50%, others 25%)
-- **creation**: Paz priority (50%, others 25%)
-- **lounge**: Equal distribution (33% each)
+**処理タイミング**: 毎日06:00自動実行
+**API使用量**: 3回/日（通常応答とは別枠）
 
-### **Daily Workflow Phases**
-- **STANDBY** (00:00-06:59): No autonomous speech, user responses only
-- **ACTIVE** (07:00-19:59): Meeting/work mode, task-based operation
-- **FREE** (20:00-23:59): Social mode in lounge channel
+#### **処理フロー**
+1. **統合分析（API 1回目）**: Gemini 2.0 Flash 1M contextで価値判定・重複検出・構造化
+2. **進捗差分（API 2回目）**: 前日との比較で成長・変化を検出
+3. **Embedding生成（API 3回目）**: text-embedding-004でバッチembedding生成
 
-## 🎯 **Task Management**
+#### **データ保存**
+- **PostgreSQL + pgvector**: 原子的記憶として個別具体的要素を保存
+- **テーブル構造**: unified_memories（記憶内容、エンティティ、embedding）
+- **検索機能**: セマンティック検索でタイプスクリプト、転職などを完全検索
 
-### **Task Commands**
+#### **重複管理**
+- **MinHash/LSH**: datasketch使用（API不要）
+- **閾値**: 0.8以上の類似度で重複判定
+
+### **統合メッセージシステム（API不要）**
+
+**送信タイミング**: 長期記憶化完了次第自動送信
+**処理方式**: 最新の原子的記憶からのテンプレート式生成
+**構成**: 日報（Discord Embed）+ 会議開始宣言（通常メッセージ）
+
+#### **統合メッセージフォーマット**
+```
+通常メッセージ部分:
+🏛️ **おはようございます！本日の会議を開始します。**
+
+昨日の活動サマリーと本日の方針を以下に共有いたします。
+
+Discord Embed部分:
+📅 Daily Report - [日付]
+
+🧭 Command Center:
+  - [テーマ]: [詳細]
+  - [テーマ]: [詳細]
+
+🗃️ Creation:
+  - [テーマ]: [詳細]
+  - [テーマ]: [詳細]
+
+🗃️ Development:
+  - [テーマ]: [詳細]
+  - [テーマ]: [詳細]
+```
+
+#### **抽出ロジック**
+- **エンティティベース**: 原子的記憶のentitiesフィールドからテーマ抽出
+- **重要度順**: importanceスコアで上位3件を選択
+- **状態判定**: 「完了」「進行中」「開始」等の状態を自動判定
+
+#### **対象チャンネル**
+- **🧭 Command Center**: 戦略決定、方針変更、重要課題
+- **🗃️ Creation**: 制作進展、創造的活動、作品完成
+- **🗃️ Development**: 技術実装、機能完成、品質改善
+- **除外**: loungeチャンネル
+
+### **統合朝次ワークフロー（イベントドリブン）**
+
+**開始時刻**: 毎日06:00
+**処理方式**: 完了次第次ステップ実行
+
+#### **ワークフロー順序**
+1. **06:00**: 長期記憶化開始（3-API処理、約5-10分）
+2. **記憶化完了次第**: 日報+会議開始宣言統合送信（<30秒）
+
+#### **エラーハンドリング**
+- **記憶化失敗**: 前日データで統合メッセージ生成、会議は通常開始
+- **統合メッセージ送信失敗**: システムメンテナンス通知、会議延期
+- **部分的成功**: 処理完了分で継続、エラー内容をログ記録
+
+#### **利点**
+- **データ一貫性**: 日報が最新記憶データに基づく
+- **効率性**: 1回のメッセージ送信で日報+会議開始を統合
+- **ユーザビリティ**: 1つのメッセージで全情報提供
+- **ワークフロー簡素化**: 記憶化完了→統合送信の2ステップ
+
+## 🤖 **エージェント役割・動作**
+
+### **Discordボット**
+- **Reception Client**: 統合メッセージ受信（単一リスナー）
+- **Spectra Bot**: 会議進行、プロジェクト管理（🔵）
+- **LynQ Bot**: 技術討論、開発タスク（🔴）
+- **Paz Bot**: 創作作業、ブレインストーミング（🟡）
+
+### **チャンネル特化**
+- **command-center**: 全エージェント（Spectra 40%、LynQ 30%、Paz 30%）
+- **development**: LynQ優先（50%、その他25%）
+- **creation**: Paz優先（50%、その他25%）
+- **lounge**: 均等分散（33%ずつ）
+
+### **日次ワークフロー段階**
+- **STANDBY**（00:00-05:59）: 自発発言なし、ユーザー応答のみ
+- **PROCESSING**（06:00-会議開始）: 長期記憶化・日報生成処理中（通常6-11分）
+- **ACTIVE**（会議開始-19:59）: 会議/作業モード、タスクベース動作
+- **FREE**（20:00-23:59）: loungeチャンネルでソーシャルモード
+
+## 🎯 **タスク管理**
+
+### **タスクコマンド**
 ```bash
-# Start new task
+# 新しいタスク開始
 /task commit development "認証システム実装"
 
-# Change task within same channel
+# タスク内容変更
 /task change development "API設計"
 
-# Move task to different channel
+# チャンネル間タスク移動
 /task change creation "アイデアブレスト"
 ```
 
-### **Command Behavior**
-- Tasks are sequential (one active channel at a time)
-- Cross-channel migration supported (development → creation)
-- Autonomous speech follows active task channel
-- Task data stored in Redis with full history
+### **コマンド動作**
+- タスクは逐次実行（一度に1つのアクティブチャンネル）
+- クロスチャンネル移行サポート（development → creation）
+- 自発発言はアクティブタスクチャンネルに追従
+- タスクデータはRedisに完全履歴保存
 
-## ⚙️ **Technical Specifications**
+## ⚙️ **技術仕様**
 
-### **System Requirements**
+### **システム要件**
 - Python 3.9+
-- Redis 7.0+ (hot memory)
-- PostgreSQL 14+ with pgvector (cold memory foundation)
-- 2GB+ RAM, 2+ CPU cores
+- Redis 7.0+（ホットメモリ）
+- PostgreSQL 14+ with pgvector（コールドメモリ）
+- datasketch（重複検出、pip install datasketch）
+- 2GB+ RAM、2+ CPU コア
 
-### **Environment Variables**
+### **環境変数**
 ```bash
-# Discord Integration
+# Discord統合
 DISCORD_RECEPTION_TOKEN=<reception_bot_token>
 DISCORD_SPECTRA_TOKEN=<spectra_bot_token>
 DISCORD_LYNQ_TOKEN=<lynq_bot_token>
 DISCORD_PAZ_TOKEN=<paz_bot_token>
 
-# AI Integration
+# AI統合
 GEMINI_API_KEY=<google_gemini_api_key>
 
-# Database
+# データベース
 REDIS_URL=redis://localhost:6379
 POSTGRESQL_URL=postgresql://user:pass@localhost:5432/db
 
-# System Configuration
-ENVIRONMENT=production  # or test
+# システム設定
+ENVIRONMENT=production  # または test
 LOG_LEVEL=INFO
 HEALTH_CHECK_PORT=8000
 ```
 
-### **Performance Metrics**
-- **Response Time**: <2s average (production validated)
-- **Autonomous Speech**: 10s test / 5min production
-- **Agent Rotation**: 90% weight reduction prevents consecutive speech
-- **Memory Usage**: ~1.5GB normal operation
-- **Concurrent Users**: 50+ simultaneous users supported
+### **パフォーマンス指標**
+- **応答時間**: <2秒平均（本番環境で検証済み）
+- **自発発言**: 10秒テスト / 5分本番
+- **エージェントローテーション**: 90%重み削減により連続発言防止
+- **長期記憶処理**: 06:00バッチ処理（3-API）、処理時間約5-10分
+- **統合メッセージ送信**: 記憶化完了次第自動送信（API不要）、処理時間<30秒
+- **統合ワークフロー**: 06:00開始、全処理完了まで約6-11分
+- **メモリ使用量**: 通常動作で約1.5GB
+- **同時ユーザー**: 50+同時ユーザーサポート
 
-## 🚨 **Critical Implementation Principles**
+## 🚨 **重要な実装原則**
 
-### **TDD Workflow (Mandatory)**
-1. **Explore Phase**: Understand requirements and existing code
-2. **Red Phase**: Write failing tests first
-3. **Green Phase**: Implement minimal code to pass tests
-4. **Refactor Phase**: Improve code quality while maintaining tests
+### **TDDワークフロー（必須）**
+1. **探索段階**: 要件と既存コードの理解
+2. **Red段階**: 失敗するテストを最初に記述
+3. **Green段階**: テストを通す最小コードを実装
+4. **リファクタ段階**: テストを維持しながらコード品質向上
 
-### **Development Rules**
-- **Test-First**: Never implement without tests
-- **Minimal Changes**: Only implement what's explicitly requested
-- **No Hardcoding**: Use environment variables for all configuration
-- **Error Handling**: Comprehensive error recovery mechanisms
+### **開発ルール**
+- **テストファースト**: テストなしで実装しない
+- **最小変更**: 明示的に要求されたもののみ実装
+- **ハードコーディング禁止**: 全設定に環境変数を使用
+- **エラーハンドリング**: 包括的エラー回復メカニズム
 
-### **Documentation Updates**
-- Always update `CURRENT_STATUS.md` after major changes
-- Keep documentation minimal and focused
-- Archive old documents instead of deleting
-- Use this file structure as the single source of truth
+### **ドキュメント更新**
+- 主要変更後は常に`CLAUDE.md`のバージョン情報と制限事項を更新
+- ドキュメントは最小限かつ焦点を絞る
+- 古いドキュメントは削除ではなくアーカイブ
+- このファイル構造を単一の真実の源として使用
 
-## 📋 **Quality Assurance**
+## 📋 **品質保証**
 
-### **Testing Strategy**
-- Unit tests for individual components
-- Integration tests for system interactions
-- Production validation with Discord integration
-- Performance testing under load
+### **テスト戦略**
+- 個別コンポーネントのユニットテスト
+- システム相互作用の統合テスト
+- Discord統合での本番検証
+- 負荷下でのパフォーマンステスト
 
-### **Success Criteria**
-- Zero critical bugs in production
-- <2s response time for normal messages  
-- >90% agent selection accuracy
-- Perfect autonomous speech rotation
-- Graceful error handling and recovery
+### **成功基準**
+- 本番環境で重要バグゼロ
+- 通常メッセージで<2秒応答時間
+- >90%エージェント選択精度
+- 完璧な自発発言ローテーション
+- グレースフルエラーハンドリングと回復
 
-## 🔄 **Current Status: v0.2.0 Production Ready**
+## 🔄 **現在の状況: v0.2.2 本番準備完了**
 
-### **Validated Features**
-- ✅ 4-bot Discord integration working
-- ✅ LangGraph supervisor agent selection
-- ✅ Redis memory system operational
-- ✅ Autonomous speech with rotation logic
-- ✅ Task commands with channel migration
-- ✅ Health monitoring and metrics
-- ✅ Production testing completed (15-message test)
+### **検証済み機能**
+- ✅ 4ボットDiscord統合動作
+- ✅ LangGraphスーパーバイザーエージェント選択
+- ✅ Redisメモリシステム動作
+- ✅ ローテーションロジック付き自発発言
+- ✅ チャンネル移行付きタスクコマンド
+- ✅ ヘルス監視とメトリクス
+- ✅ 本番テスト完了（15メッセージテスト）
 
-### **Known Limitations**
-- PostgreSQL search function temporarily disabled (foundation ready)
-- Embedding API quota limited to 15 RPM (production compliant)
-- 00:00 system rest period not yet implemented
+### **既知の制限事項**
+- PostgreSQL検索機能一時無効化（基盤準備完了）
+- Embedding API制限15 RPM（本番準拠）
+- 00:00システム休息期間未実装
 
-### **Next Version (v0.3.0)**
-- Complete PostgreSQL cold memory system
-- Advanced LLM integration for agent selection
-- Enhanced workflow automation
-- Performance optimization for 100+ users
+### **次バージョン（v0.3.0）**
+- 完全PostgreSQLコールドメモリシステム
+- 高度LLM統合によるエージェント選択
+- 強化ワークフロー自動化
+- 100+ユーザー向けパフォーマンス最適化
 
 ---
 
-**For current system status and health, see [`docs/current-status.md`](docs/current-status.md)**  
-**For operations and deployment, see [`docs/deployment-guide.md`](docs/deployment-guide.md)**  
-**For testing procedures, see [`docs/testing-guide.md`](docs/testing-guide.md)**  
-**For requirements reference, see [`docs/acceptance-criteria.md`](docs/acceptance-criteria.md)**  
-**For future development, see [`docs/roadmap.md`](docs/roadmap.md)**
+**現在のシステム状況とヘルスについては [`docs/現在の状況.md`](docs/現在の状況.md) を参照**  
+**運用とデプロイについては [`docs/運用ガイド.md`](docs/運用ガイド.md) を参照**  
+**要件リファレンスについては [`docs/受入基準.md`](docs/受入基準.md) を参照**  
+**将来開発については [`docs/実装計画.md`](docs/実装計画.md) を参照**
