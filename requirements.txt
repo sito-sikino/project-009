@@ -11,6 +11,7 @@ langchain-google-genai==2.0.5
 redis>=5.3.0  # Updated for Python 3.12 compatibility
 asyncpg==0.29.0
 psycopg2-binary==2.9.9
+datasketch==1.6.5  # MinHash/LSH for deduplication
 
 # Testing Framework
 pytest==8.0.0

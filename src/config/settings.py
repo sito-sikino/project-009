@@ -94,10 +94,16 @@ class DiscordSettings:
         if not all(tokens):
             raise ValueError("All Discord bot tokens must be provided")
         
-        # トークン形式の基本検証
+        # トークン形式の検証（test/production環境で統一）
+        # 両環境でリアルDiscordトークンを使用
         for token in tokens:
+            if not token:
+                raise ValueError("Discord token cannot be empty")
             if len(token) < 50:  # Discord botトークンは通常50文字以上
                 raise ValueError(f"Invalid Discord token format: {token[:10]}...")
+            # 実際のDiscordトークンの基本パターンチェック
+            if not (token.count('.') >= 2):  # Discord tokenは通常ピリオドを含む
+                raise ValueError(f"Invalid Discord token pattern: {token[:10]}...")
 
 
 @dataclass

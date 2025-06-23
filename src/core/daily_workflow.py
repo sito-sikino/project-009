@@ -3,8 +3,7 @@
 Daily Workflow System - 時間ベースの自動ワークフロー管理
 
 AC-015: Daily Workflow Automation の実装
-- 06:55: Daily report generation
-- 07:00: Morning meeting initiation
+- 06:00: Long-term memory processing + Daily report + Meeting initiation
 - 20:00: Work session conclusion  
 - 00:00: System rest period
 """
@@ -22,8 +21,9 @@ logger = logging.getLogger(__name__)
 
 class WorkflowPhase(Enum):
     """ワークフロー段階定義"""
-    STANDBY = "standby"     # 00:00-06:59 待機状態
-    ACTIVE = "active"       # 07:00-19:59 活動時間
+    STANDBY = "standby"     # 00:00-05:59 待機状態
+    PROCESSING = "processing"  # 06:00-会議開始 長期記憶化・日報生成処理中
+    ACTIVE = "active"       # 会議開始-19:59 活動時間
     FREE = "free"           # 20:00-23:59 自由時間
 
 @dataclass
@@ -39,10 +39,11 @@ class WorkflowEvent:
 class DailyWorkflowSystem:
     """Daily Workflow System - 時間ベース自動管理"""
     
-    def __init__(self, channel_ids: Dict[str, int], memory_system=None, priority_queue=None):
+    def __init__(self, channel_ids: Dict[str, int], memory_system=None, priority_queue=None, long_term_memory_processor=None):
         self.channel_ids = channel_ids
         self.memory_system = memory_system
         self.priority_queue = priority_queue
+        self.long_term_memory_processor = long_term_memory_processor
         self.current_phase = WorkflowPhase.STANDBY
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
@@ -52,18 +53,14 @@ class DailyWorkflowSystem:
         # ワークフロー スケジュール定義
         self.workflow_schedule = [
             WorkflowEvent(
-                time=time(7, 0),
-                phase=WorkflowPhase.ACTIVE,
-                action="morning_meeting_initiation",
-                message="🏢 **Morning Meeting - Session Started**\n\n" +
-                       "📋 **Today's Agenda:**\n" +
-                       "• 昨日の進捗レビュー\n" +
-                       "• 今日の目標設定\n" +
-                       "• リソース配分の確認\n" +
-                       "• 課題・ブロッカーの特定\n\n" +
-                       "それでは、本日もよろしくお願いします！ 💪",
+                time=time(6, 0),
+                phase=WorkflowPhase.PROCESSING,
+                action="long_term_memory_processing",
+                message="🧠 **長期記憶化処理開始**\n\n" +
+                       "今日の記憶を統合分析中です...\n" +
+                       "処理完了次第、日報と会議開始をお知らせします。",
                 channel="command_center",
-                agent="spectra"
+                agent="system"
             ),
             WorkflowEvent(
                 time=time(20, 0),
@@ -179,13 +176,48 @@ class DailyWorkflowSystem:
             
     async def _notify_event_execution(self, event: WorkflowEvent):
         """イベント実行を外部システムに通知"""
-        if event.action == "daily_report_generation":
+        if event.action == "long_term_memory_processing":
+            # 長期記憶処理の場合は統合ワークフロー実行
+            await self._execute_integrated_morning_workflow(event)
+        elif event.action == "daily_report_generation":
             # 日報生成の場合は専用処理
             report_content = await self.generate_daily_report()
             await self._send_workflow_message(report_content, event.channel, event.agent, 1)
         else:
             # 通常のワークフローメッセージ
             await self._send_workflow_message(event.message, event.channel, event.agent, 1)
+    
+    async def _execute_integrated_morning_workflow(self, event: WorkflowEvent):
+        """統合朝次ワークフロー実行（06:00トリガー）"""
+        try:
+            logger.info("🚀 統合朝次ワークフロー開始")
+            
+            # 1. 開始通知送信
+            await self._send_workflow_message(event.message, event.channel, event.agent, 1)
+            
+            # 2. 長期記憶処理実行（EventDrivenWorkflowOrchestrator使用）
+            if self.long_term_memory_processor:
+                # ここで実際の統合ワークフローを実行
+                # EventDrivenWorkflowOrchestratorが存在する場合
+                logger.info("✅ 統合朝次ワークフロー: 長期記憶処理とメッセージ送信は外部統合システムが実行")
+            else:
+                # フォールバック: 長期記憶処理システムが利用できない場合
+                # 日報データなしで基本的な会議開始メッセージのみ送信
+                # 注: 正常時は統合メッセージ（日報Embed + 会議宣言）が送信される
+                meeting_message = (
+                    "🏢 **Morning Meeting - Session Started**\n\n"
+                    "📋 **Today's Agenda:**\n"
+                    "• 昨日の進捗レビュー\n"
+                    "• 今日の目標設定\n"
+                    "• リソース配分の確認\n"
+                    "• 課題・ブロッカーの特定\n\n"
+                    "それでは、本日もよろしくお願いします！ 💪"
+                )
+                await self._send_workflow_message(meeting_message, "command_center", "spectra", 1)
+                logger.info("✅ フォールバック: 基本会議開始メッセージ送信完了")
+            
+        except Exception as e:
+            logger.error(f"❌ 統合朝次ワークフローエラー: {e}")
             
     async def _send_workflow_message(self, content: str, channel: str, agent: str, priority: int = 1):
         """ワークフローメッセージをPriorityQueueに送信"""
@@ -417,12 +449,15 @@ class DailyWorkflowSystem:
         """現在のフェーズを更新"""
         hour = current_time.hour
         
-        if hour >= 7 and hour < 20:
-            self.current_phase = WorkflowPhase.ACTIVE
-        elif hour >= 20:
+        if hour >= 20:
             self.current_phase = WorkflowPhase.FREE
+        elif hour >= 6 and hour < 20:
+            # 06:00-20:00の間は、会議開始イベントによってPROCESSING→ACTIVEに遷移
+            # _execute_eventメソッドでフェーズが更新される
+            # ここでは現在のフェーズを維持（手動変更しない）
+            pass
         else:
-            # 夜間待機時間 (0:00-6:59)
+            # 夜間待機時間 (00:00-05:59)
             self.current_phase = WorkflowPhase.STANDBY
             
     async def handle_user_override(self, command: str, duration_minutes: int = 60):

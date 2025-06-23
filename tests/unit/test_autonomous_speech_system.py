@@ -191,7 +191,7 @@ class TestAutonomousSpeechSystem(unittest.TestCase):
     @patch('src.core.daily_workflow.datetime')
     def test_active_phase_channel_control(self, mock_datetime):
         """ACTIVE期間チャンネル制御テスト"""
-        # ACTIVE時間設定 (07:00-19:59)
+        # ACTIVE時間設定 (会議開始後-19:59)
         active_time = datetime.strptime("14:00", "%H:%M").time()
         mock_datetime.now.return_value.time.return_value = active_time
         

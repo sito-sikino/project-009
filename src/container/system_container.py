@@ -132,17 +132,45 @@ class SystemContainer:
             singleton=True
         )
         
-        # Daily Workflow System (depends on settings, memory_system, priority_queue)
-        self._components['daily_workflow'] = ComponentDefinition(
-            factory=self._create_daily_workflow,
-            dependencies=['settings', 'memory_system', 'priority_queue'],
+        # v0.3.0 Long-term Memory Processor (depends on settings, memory_system)
+        self._components['long_term_memory_processor'] = ComponentDefinition(
+            factory=self._create_long_term_memory_processor,
+            dependencies=['settings', 'memory_system'],
             singleton=True
         )
         
-        # Autonomous Speech System (depends on settings, daily_workflow, priority_queue)
+        # v0.3.0 Daily Report Generator (no dependencies)
+        self._components['daily_report_generator'] = ComponentDefinition(
+            factory=self._create_daily_report_generator,
+            dependencies=[],
+            singleton=True
+        )
+        
+        # v0.3.0 Integrated Message System (depends on output bots)
+        self._components['integrated_message_system'] = ComponentDefinition(
+            factory=self._create_integrated_message_system,
+            dependencies=['spectra_bot', 'lynq_bot', 'paz_bot'],
+            singleton=True
+        )
+        
+        # v0.3.0 Event-driven Workflow Orchestrator (depends on v0.3.0 components + settings)
+        self._components['event_driven_workflow_orchestrator'] = ComponentDefinition(
+            factory=self._create_event_driven_workflow_orchestrator,
+            dependencies=['long_term_memory_processor', 'daily_report_generator', 'integrated_message_system', 'settings'],
+            singleton=True
+        )
+
+        # Daily Workflow System (depends on settings, memory_system, priority_queue, long_term_memory_processor)
+        self._components['daily_workflow'] = ComponentDefinition(
+            factory=self._create_daily_workflow,
+            dependencies=['settings', 'memory_system', 'priority_queue', 'long_term_memory_processor'],
+            singleton=True
+        )
+        
+        # Autonomous Speech System (depends on settings, daily_workflow, priority_queue, gemini_client)
         self._components['autonomous_speech'] = ComponentDefinition(
             factory=self._create_autonomous_speech,
-            dependencies=['settings', 'daily_workflow', 'priority_queue'],
+            dependencies=['settings', 'daily_workflow', 'priority_queue', 'gemini_client'],
             singleton=True
         )
     
@@ -342,11 +370,13 @@ class SystemContainer:
         settings = dependencies['settings']
         memory_system = dependencies['memory_system']
         priority_queue = dependencies['priority_queue']
+        long_term_memory_processor = dependencies['long_term_memory_processor']
         
         return DailyWorkflowSystem(
             channel_ids=settings.discord.channel_ids,
             memory_system=memory_system,
-            priority_queue=priority_queue
+            priority_queue=priority_queue,
+            long_term_memory_processor=long_term_memory_processor
         )
     
     def _create_autonomous_speech(self, dependencies: Dict[str, Any] = None):
@@ -355,12 +385,56 @@ class SystemContainer:
         settings = dependencies['settings']
         daily_workflow = dependencies['daily_workflow']
         priority_queue = dependencies['priority_queue']
+        gemini_client = dependencies['gemini_client']
         
         return AutonomousSpeechSystem(
             channel_ids=settings.discord.channel_ids,
             environment=settings.system.environment.value,
             workflow_system=daily_workflow,
-            priority_queue=priority_queue
+            priority_queue=priority_queue,
+            gemini_client=gemini_client
+        )
+    
+    def _create_long_term_memory_processor(self, dependencies: Dict[str, Any] = None):
+        """v0.3.0 長期記憶処理システムの作成"""
+        from ..infrastructure.long_term_memory import LongTermMemoryProcessor
+        settings = dependencies['settings']
+        memory_system = dependencies['memory_system']
+        
+        return LongTermMemoryProcessor(
+            redis_url=settings.database.redis_url,
+            postgres_url=settings.database.postgresql_url,
+            gemini_api_key=settings.ai.gemini_api_key
+        )
+    
+    def _create_daily_report_generator(self, dependencies: Dict[str, Any] = None):
+        """v0.3.0 日報生成システムの作成"""
+        from ..core.daily_report_system import DailyReportGenerator
+        
+        return DailyReportGenerator()
+    
+    def _create_integrated_message_system(self, dependencies: Dict[str, Any] = None):
+        """v0.3.0 統合メッセージシステムの作成"""
+        from ..core.daily_report_system import IntegratedMessageSystem
+        
+        output_bots = {
+            "spectra": dependencies['spectra_bot'],
+            "lynq": dependencies['lynq_bot'],
+            "paz": dependencies['paz_bot']
+        }
+        
+        return IntegratedMessageSystem(output_bots=output_bots)
+    
+    def _create_event_driven_workflow_orchestrator(self, dependencies: Dict[str, Any] = None):
+        """v0.3.0 イベントドリブンワークフロー統括システムの作成"""
+        from ..core.daily_report_system import EventDrivenWorkflowOrchestrator
+        settings = dependencies['settings']
+        
+        return EventDrivenWorkflowOrchestrator(
+            long_term_memory_processor=dependencies['long_term_memory_processor'],
+            daily_report_generator=dependencies['daily_report_generator'],
+            integrated_message_system=dependencies['integrated_message_system'],
+            command_center_channel_id=settings.discord.channel_ids.get('command_center', 0)
         )
     
     async def cleanup(self) -> None:

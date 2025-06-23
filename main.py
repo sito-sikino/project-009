@@ -9,8 +9,8 @@ import sys
 
 # Load environment variables early (with fallback)
 try:
-from dotenv import load_dotenv
-load_dotenv()
+    from dotenv import load_dotenv
+    load_dotenv()
 except ImportError:
     # Fallback: dotenv not available, use system environment variables
     pass
@@ -57,7 +57,7 @@ async def main():
         logger.info("▶️ Starting main application loop...")
         await lifecycle.run()
             
-        except Exception as e:
+    except Exception as e:
         if logger:
             logger.error(f"❌ Failed to start system: {e}")
         else:

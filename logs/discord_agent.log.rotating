@@ -2240,3 +2240,544 @@
 2025-06-22 22:05:25,550 | system.system_lifecycle:283 | [32mINFO[0m | log_component_status() | ✅ System_Lifecycle: ready (shutdown complete)
 2025-06-22 22:05:25,550 | __main__:207 | [32mINFO[0m | _shutdown_phase() | ✅ System shutdown phase completed
 2025-06-22 22:05:25,550 | __main__:142 | [32mINFO[0m | run() | 📊 System uptime: 0:00:37.371530
+2025-06-23 21:43:21,903 | src.utils.logger:99 | [32mINFO[0m | setup_logging() | 🚀 Logging system initialized
+2025-06-23 21:43:21,903 | src.utils.logger:100 | [32mINFO[0m | setup_logging() | Log level: INFO
+2025-06-23 21:43:21,903 | src.utils.logger:101 | [32mINFO[0m | setup_logging() | Log file: logs/discord_agent.log
+2025-06-23 21:43:21,903 | src.utils.logger:102 | [32mINFO[0m | setup_logging() | Environment: test
+2025-06-23 21:43:21,903 | __main__:144 | [32mINFO[0m | verify_system_container() | ✅ コンポーネント登録確認: long_term_memory_processor
+2025-06-23 21:43:21,904 | __main__:144 | [32mINFO[0m | verify_system_container() | ✅ コンポーネント登録確認: daily_report_generator
+2025-06-23 21:43:21,904 | __main__:144 | [32mINFO[0m | verify_system_container() | ✅ コンポーネント登録確認: integrated_message_system
+2025-06-23 21:43:21,904 | __main__:144 | [32mINFO[0m | verify_system_container() | ✅ コンポーネント登録確認: event_driven_workflow_orchestrator
+2025-06-23 21:43:21,904 | __main__:152 | [32mINFO[0m | verify_system_container() | ✅ SystemContainer依存関係確認完了
+2025-06-23 21:43:21,904 | __main__:56 | [32mINFO[0m | verify_all() | ✅ SystemContainer検証成功
+2025-06-23 21:43:21,904 | __main__:51 | [32mINFO[0m | verify_all() | 🔍 長期記憶システム検証開始
+2025-06-23 21:43:21,907 | src.infrastructure.memory_system:135 | [32mINFO[0m | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://test:****@localhost:5432/test_db
+2025-06-23 21:43:21,952 | __main__:183 | [32mINFO[0m | verify_long_term_memory_system() | ✅ 長期記憶システム基本機能確認完了
+2025-06-23 21:43:21,952 | __main__:56 | [32mINFO[0m | verify_all() | ✅ 長期記憶システム検証成功
+2025-06-23 21:43:21,953 | __main__:51 | [32mINFO[0m | verify_all() | 🔍 日報システム検証開始
+2025-06-23 21:43:21,957 | __main__:222 | [32mINFO[0m | verify_daily_report_system() | ✅ 日報システム基本機能確認完了
+2025-06-23 21:43:21,957 | __main__:56 | [32mINFO[0m | verify_all() | ✅ 日報システム検証成功
+2025-06-23 21:43:21,957 | __main__:51 | [32mINFO[0m | verify_all() | 🔍 統合ワークフロー検証開始
+2025-06-23 21:43:21,958 | __main__:256 | [32mINFO[0m | verify_integrated_workflow() | ✅ 統合ワークフロー基本機能確認完了
+2025-06-23 21:43:21,958 | __main__:56 | [32mINFO[0m | verify_all() | ✅ 統合ワークフロー検証成功
+2025-06-23 21:43:21,958 | __main__:51 | [32mINFO[0m | verify_all() | 🔍 PostgreSQLスキーマ検証開始
+2025-06-23 21:43:21,958 | __main__:289 | [32mINFO[0m | verify_postgresql_schema() | ✅ SQL要素確認: unified_memories
+2025-06-23 21:43:21,958 | __main__:289 | [32mINFO[0m | verify_postgresql_schema() | ✅ SQL要素確認: vector(768)
+2025-06-23 21:43:21,958 | __main__:289 | [32mINFO[0m | verify_postgresql_schema() | ✅ SQL要素確認: embedding
+2025-06-23 21:43:21,959 | __main__:289 | [32mINFO[0m | verify_postgresql_schema() | ✅ SQL要素確認: search_unified_memories
+2025-06-23 21:43:21,959 | __main__:289 | [32mINFO[0m | verify_postgresql_schema() | ✅ SQL要素確認: daily_entity_progress
+2025-06-23 21:43:21,959 | __main__:291 | [32mINFO[0m | verify_postgresql_schema() | ✅ PostgreSQLスキーマ設計確認完了
+2025-06-23 21:43:21,959 | __main__:56 | [32mINFO[0m | verify_all() | ✅ PostgreSQLスキーマ検証成功
+2025-06-23 21:43:21,959 | __main__:300 | [32mINFO[0m | generate_final_report() | 
+============================================================
+2025-06-23 21:43:21,959 | __main__:301 | [32mINFO[0m | generate_final_report() | 📊 v0.3.0統合検証レポート
+2025-06-23 21:43:21,959 | __main__:302 | [32mINFO[0m | generate_final_report() | ============================================================
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: 環境変数
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: 依存関係
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: SystemContainer
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: 長期記憶システム
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: 日報システム
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: 統合ワークフロー
+2025-06-23 21:43:21,959 | __main__:310 | [32mINFO[0m | generate_final_report() | ✅ 成功: PostgreSQLスキーマ
+2025-06-23 21:43:21,959 | __main__:315 | [32mINFO[0m | generate_final_report() | 
+📊 検証結果: 7/7 (100.0%)
+2025-06-23 21:43:21,959 | __main__:318 | [32mINFO[0m | generate_final_report() | 🎉 v0.3.0統合検証完全成功！
+2025-06-23 21:43:21,959 | __main__:319 | [32mINFO[0m | generate_final_report() | 🚀 システムは本番デプロイ準備完了です
+2025-06-23 22:01:44,722 | src.utils.logger:99 | INFO | setup_logging() | 🚀 Logging system initialized
+2025-06-23 22:01:44,722 | src.utils.logger:100 | INFO | setup_logging() | Log level: INFO
+2025-06-23 22:01:44,722 | src.utils.logger:101 | INFO | setup_logging() | Log file: logs/discord_agent.log
+2025-06-23 22:01:44,722 | src.utils.logger:102 | INFO | setup_logging() | Environment: production
+2025-06-23 22:01:44,722 | system.startup:254 | INFO | log_system_startup() | 🚀 Discord Multi-Agent System starting...
+2025-06-23 22:01:44,722 | system.startup:255 | INFO | log_system_startup() | 🌍 Environment: production
+2025-06-23 22:01:44,723 | system.startup:256 | INFO | log_system_startup() | 🔧 Clean Architecture v0.2.2
+2025-06-23 22:01:44,723 | __main__:36 | INFO | main() | 🚀 Starting Discord Multi-Agent System v0.2.2
+2025-06-23 22:01:44,723 | __main__:37 | INFO | main() | 🏗️ Architecture: Clean Architecture + 統合受信・個別送信型
+2025-06-23 22:01:44,723 | __main__:40 | INFO | main() | 🔧 Initializing System Container...
+2025-06-23 22:01:44,723 | src.container.system_container:182 | INFO | initialize() | 🔧 Initializing System Container...
+2025-06-23 22:01:44,723 | system.system_container:283 | INFO | log_component_status() | 🔄 System_Container: starting
+2025-06-23 22:01:44,723 | src.container.system_container:230 | INFO | _resolve_initialization_order() | 🔄 Component initialization order: settings → priority_queue → gemini_client → memory_system → reception_client → agent_supervisor → spectra_bot → lynq_bot → paz_bot → message_router → long_term_memory_processor → daily_report_generator → integrated_message_system → event_driven_workflow_orchestrator → daily_workflow → autonomous_speech
+2025-06-23 22:01:44,723 | system.settings:283 | INFO | log_component_status() | ✅ Settings: ready
+2025-06-23 22:01:44,724 | src.container.system_container:260 | INFO | _initialize_component() | ✅ settings initialized
+2025-06-23 22:01:44,724 | system.priority_queue:283 | INFO | log_component_status() | ✅ Priority_Queue: ready
+2025-06-23 22:01:44,724 | src.container.system_container:260 | INFO | _initialize_component() | ✅ priority_queue initialized
+2025-06-23 22:01:45,371 | system.gemini_client:283 | INFO | log_component_status() | ✅ Gemini_Client: ready
+2025-06-23 22:01:45,371 | src.container.system_container:260 | INFO | _initialize_component() | ✅ gemini_client initialized
+2025-06-23 22:01:45,398 | src.infrastructure.memory_system:135 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-23 22:01:45,399 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-23 22:01:45,399 | src.container.system_container:260 | INFO | _initialize_component() | ✅ memory_system initialized
+2025-06-23 22:01:45,456 | discord.client:295 | WARNING | __init__() | PyNaCl is not installed, voice will NOT be supported
+2025-06-23 22:01:45,456 | system.reception_client:283 | INFO | log_component_status() | ✅ Reception_Client: ready
+2025-06-23 22:01:45,456 | src.container.system_container:260 | INFO | _initialize_component() | ✅ reception_client initialized
+2025-06-23 22:01:45,489 | system.agent_supervisor:283 | INFO | log_component_status() | ✅ Agent_Supervisor: ready
+2025-06-23 22:01:45,489 | src.container.system_container:260 | INFO | _initialize_component() | ✅ agent_supervisor initialized
+2025-06-23 22:01:45,499 | system.spectra_bot:283 | INFO | log_component_status() | ✅ Spectra_Bot: ready
+2025-06-23 22:01:45,499 | src.container.system_container:260 | INFO | _initialize_component() | ✅ spectra_bot initialized
+2025-06-23 22:01:45,499 | system.lynq_bot:283 | INFO | log_component_status() | ✅ Lynq_Bot: ready
+2025-06-23 22:01:45,499 | src.container.system_container:260 | INFO | _initialize_component() | ✅ lynq_bot initialized
+2025-06-23 22:01:45,500 | system.paz_bot:283 | INFO | log_component_status() | ✅ Paz_Bot: ready
+2025-06-23 22:01:45,500 | src.container.system_container:260 | INFO | _initialize_component() | ✅ paz_bot initialized
+2025-06-23 22:01:45,500 | system.message_router:283 | INFO | log_component_status() | ✅ Message_Router: ready
+2025-06-23 22:01:45,500 | src.container.system_container:260 | INFO | _initialize_component() | ✅ message_router initialized
+2025-06-23 22:01:45,766 | src.infrastructure.memory_system:135 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-23 22:01:45,775 | system.long_term_memory_processor:283 | INFO | log_component_status() | ✅ Long_Term_Memory_Processor: ready
+2025-06-23 22:01:45,775 | src.container.system_container:260 | INFO | _initialize_component() | ✅ long_term_memory_processor initialized
+2025-06-23 22:01:45,776 | system.daily_report_generator:283 | INFO | log_component_status() | ✅ Daily_Report_Generator: ready
+2025-06-23 22:01:45,776 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_report_generator initialized
+2025-06-23 22:01:45,776 | system.integrated_message_system:283 | INFO | log_component_status() | ✅ Integrated_Message_System: ready
+2025-06-23 22:01:45,776 | src.container.system_container:260 | INFO | _initialize_component() | ✅ integrated_message_system initialized
+2025-06-23 22:01:45,776 | system.event_driven_workflow_orchestrator:283 | INFO | log_component_status() | ✅ Event_Driven_Workflow_Orchestrator: ready
+2025-06-23 22:01:45,776 | src.container.system_container:260 | INFO | _initialize_component() | ✅ event_driven_workflow_orchestrator initialized
+2025-06-23 22:01:45,777 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-23 22:01:45,777 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_workflow initialized
+2025-06-23 22:01:45,779 | src.agents.autonomous_speech:166 | INFO | __init__() | 🎙️ LLM統合型 Autonomous Speech System initialized for production
+2025-06-23 22:01:45,779 | src.agents.autonomous_speech:167 | INFO | __init__() | 📊 Speech probability: 33%
+2025-06-23 22:01:45,779 | src.agents.autonomous_speech:168 | INFO | __init__() | ⏱️ Tick interval: 300秒
+2025-06-23 22:01:45,779 | src.agents.autonomous_speech:170 | INFO | __init__() | 🔗 Workflow integration enabled
+2025-06-23 22:01:45,779 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-23 22:01:45,779 | src.container.system_container:260 | INFO | _initialize_component() | ✅ autonomous_speech initialized
+2025-06-23 22:01:45,779 | system.system_container:283 | INFO | log_component_status() | ✅ System_Container: ready (16 components)
+2025-06-23 22:01:45,779 | src.container.system_container:195 | INFO | initialize() | ✅ System Container initialized with 16 components
+2025-06-23 22:01:45,779 | __main__:43 | INFO | main() | ✅ System Container initialized with dependency injection
+2025-06-23 22:01:45,779 | __main__:46 | INFO | main() | 🎯 Creating Application Service...
+2025-06-23 22:01:45,779 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (All components initialized)
+2025-06-23 22:01:45,779 | src.application.discord_app_service:72 | INFO | _initialize_components() | ✅ Discord Application Service components initialized
+2025-06-23 22:01:45,779 | __main__:48 | INFO | main() | ✅ Discord Application Service created
+2025-06-23 22:01:45,779 | __main__:51 | INFO | main() | 🔄 Setting up System Lifecycle Manager...
+2025-06-23 22:01:45,779 | system.system_lifecycle:283 | INFO | log_component_status() | ✅ System_Lifecycle: ready
+2025-06-23 22:01:45,779 | __main__:50 | INFO | __init__() | 🔄 System Lifecycle Manager initialized
+2025-06-23 22:01:45,780 | system.signal_handlers:283 | INFO | log_component_status() | ✅ Signal_Handlers: ready
+2025-06-23 22:01:45,780 | __main__:64 | INFO | setup_signal_handlers() | 📡 Signal handlers configured (SIGINT, SIGTERM)
+2025-06-23 22:01:45,780 | __main__:54 | INFO | main() | ✅ System Lifecycle Manager ready
+2025-06-23 22:01:45,780 | __main__:57 | INFO | main() | ▶️ Starting main application loop...
+2025-06-23 22:01:45,780 | __main__:120 | INFO | run() | 🚀 Starting system lifecycle management
+2025-06-23 22:01:45,780 | __main__:146 | INFO | _startup_phase() | 🔄 Entering startup phase...
+2025-06-23 22:01:45,780 | system.system_lifecycle:283 | INFO | log_component_status() | 🔄 System_Lifecycle: starting
+2025-06-23 22:01:45,780 | src.application.discord_app_service:81 | INFO | start_application() | 🚀 Starting Discord Multi-Agent Application
+2025-06-23 22:01:45,780 | src.application.discord_app_service:82 | INFO | start_application() | Architecture: 統合受信・個別送信型 (Clean Architecture)
+2025-06-23 22:01:45,780 | src.application.discord_app_service:105 | INFO | _initialize_memory_system() | 🧠 Initializing Memory System connections...
+2025-06-23 22:01:45,782 | src.infrastructure.memory_system:173 | INFO | initialize() | ✅ Redis Hot Memory connected with connection pool
+2025-06-23 22:01:45,827 | src.infrastructure.memory_system:203 | INFO | initialize() | ✅ PostgreSQL Cold Memory connected with pgvector
+2025-06-23 22:01:45,827 | src.infrastructure.memory_system:212 | INFO | initialize() | 🧠 Discord Memory System initialized successfully
+2025-06-23 22:01:45,827 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-23 22:01:45,827 | src.application.discord_app_service:111 | INFO | _initialize_memory_system() | ✅ Memory System initialized successfully
+2025-06-23 22:01:45,828 | src.utils.health:273 | INFO | start() | Health check server started on port 8000
+2025-06-23 22:01:45,828 | src.utils.health:274 | INFO | start() | Health endpoints:
+2025-06-23 22:01:45,828 | src.utils.health:275 | INFO | start() |   - GET /health        - Overall health
+2025-06-23 22:01:45,828 | src.utils.health:276 | INFO | start() |   - GET /health/live   - Liveness probe
+2025-06-23 22:01:45,828 | src.utils.health:277 | INFO | start() |   - GET /health/ready  - Readiness probe
+2025-06-23 22:01:45,828 | src.utils.health:278 | INFO | start() |   - GET /metrics       - Prometheus metrics
+2025-06-23 22:01:45,828 | src.utils.health:279 | INFO | start() |   - GET /status        - Detailed status
+2025-06-23 22:01:45,828 | system.health_monitoring:283 | INFO | log_component_status() | ✅ Health_Monitoring: ready (port 8000)
+2025-06-23 22:01:45,828 | src.application.discord_app_service:141 | INFO | _setup_health_monitoring() | ✅ Health monitoring started on port 8000
+2025-06-23 22:01:45,828 | src.core.daily_workflow:100 | INFO | start() | 🚀 Daily Workflow System 開始
+2025-06-23 22:01:45,828 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-23 22:01:45,828 | src.application.discord_app_service:153 | INFO | _start_workflow_systems() | ✅ Daily Workflow System started
+2025-06-23 22:01:45,828 | src.agents.autonomous_speech:184 | INFO | start() | 🚀 Autonomous Speech System 開始
+2025-06-23 22:01:45,828 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-23 22:01:45,828 | src.application.discord_app_service:158 | INFO | _start_workflow_systems() | ✅ Autonomous Speech System started
+2025-06-23 22:01:45,828 | src.core.daily_workflow:118 | INFO | _workflow_loop() | 🔄 Workflow monitoring loop started
+2025-06-23 22:01:45,829 | src.agents.autonomous_speech:202 | INFO | _speech_loop() | 🔄 Autonomous speech monitoring loop started
+2025-06-23 22:01:45,829 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 300 seconds for next autonomous speech check...
+2025-06-23 22:01:45,829 | src.application.discord_app_service:181 | INFO | _start_discord_clients() | 🔌 Starting Discord clients...
+2025-06-23 22:01:45,829 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Reception Client...
+2025-06-23 22:01:45,829 | src.application.discord_app_service:226 | INFO | _message_processing_loop() | 💬 Starting message processing loop...
+2025-06-23 22:01:45,829 | system.message_processing:283 | INFO | log_component_status() | ✅ Message_Processing: ready
+2025-06-23 22:01:45,829 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:01:47,830 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Reception Client connection initiated successfully
+2025-06-23 22:01:47,830 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Spectra Bot...
+2025-06-23 22:01:47,831 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:01:48,421 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: c637d425a95cca62708c366d1014ad70).
+2025-06-23 22:01:49,059 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 395dded3ebdf027488a4bdcb3ca160b5).
+2025-06-23 22:01:49,832 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Spectra Bot connection initiated successfully
+2025-06-23 22:01:49,832 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting LynQ Bot...
+2025-06-23 22:01:49,832 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:01:51,833 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ LynQ Bot connection initiated successfully
+2025-06-23 22:01:51,833 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Paz Bot...
+2025-06-23 22:01:51,833 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:01:52,237 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 2c81417f7bfb3869a520f35d74a323e4).
+2025-06-23 22:01:53,289 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: b17838bf598aa52e4ad03215b5419905).
+2025-06-23 22:01:53,834 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Paz Bot connection initiated successfully
+2025-06-23 22:01:53,835 | system.discord_clients:283 | INFO | log_component_status() | ✅ Discord_Clients: ready (4/4 clients)
+2025-06-23 22:01:53,835 | src.application.discord_app_service:222 | INFO | _start_discord_clients() | 🎉 Successfully initiated 4/4 Discord clients
+2025-06-23 22:05:47,021 | src.utils.logger:99 | INFO | setup_logging() | 🚀 Logging system initialized
+2025-06-23 22:05:47,021 | src.utils.logger:100 | INFO | setup_logging() | Log level: INFO
+2025-06-23 22:05:47,021 | src.utils.logger:101 | INFO | setup_logging() | Log file: logs/discord_agent.log
+2025-06-23 22:05:47,021 | src.utils.logger:102 | INFO | setup_logging() | Environment: production
+2025-06-23 22:05:47,021 | system.startup:254 | INFO | log_system_startup() | 🚀 Discord Multi-Agent System starting...
+2025-06-23 22:05:47,021 | system.startup:255 | INFO | log_system_startup() | 🌍 Environment: production
+2025-06-23 22:05:47,022 | system.startup:256 | INFO | log_system_startup() | 🔧 Clean Architecture v0.2.2
+2025-06-23 22:05:47,022 | __main__:36 | INFO | main() | 🚀 Starting Discord Multi-Agent System v0.2.2
+2025-06-23 22:05:47,022 | __main__:37 | INFO | main() | 🏗️ Architecture: Clean Architecture + 統合受信・個別送信型
+2025-06-23 22:05:47,022 | __main__:40 | INFO | main() | 🔧 Initializing System Container...
+2025-06-23 22:05:47,022 | src.container.system_container:182 | INFO | initialize() | 🔧 Initializing System Container...
+2025-06-23 22:05:47,022 | system.system_container:283 | INFO | log_component_status() | 🔄 System_Container: starting
+2025-06-23 22:05:47,022 | src.container.system_container:230 | INFO | _resolve_initialization_order() | 🔄 Component initialization order: settings → priority_queue → gemini_client → memory_system → reception_client → agent_supervisor → spectra_bot → lynq_bot → paz_bot → message_router → long_term_memory_processor → daily_report_generator → integrated_message_system → event_driven_workflow_orchestrator → daily_workflow → autonomous_speech
+2025-06-23 22:05:47,022 | system.settings:283 | INFO | log_component_status() | ✅ Settings: ready
+2025-06-23 22:05:47,022 | src.container.system_container:260 | INFO | _initialize_component() | ✅ settings initialized
+2025-06-23 22:05:47,022 | system.priority_queue:283 | INFO | log_component_status() | ✅ Priority_Queue: ready
+2025-06-23 22:05:47,022 | src.container.system_container:260 | INFO | _initialize_component() | ✅ priority_queue initialized
+2025-06-23 22:05:47,576 | system.gemini_client:283 | INFO | log_component_status() | ✅ Gemini_Client: ready
+2025-06-23 22:05:47,576 | src.container.system_container:260 | INFO | _initialize_component() | ✅ gemini_client initialized
+2025-06-23 22:05:47,605 | src.infrastructure.memory_system:135 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-23 22:05:47,606 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-23 22:05:47,606 | src.container.system_container:260 | INFO | _initialize_component() | ✅ memory_system initialized
+2025-06-23 22:05:47,661 | discord.client:295 | WARNING | __init__() | PyNaCl is not installed, voice will NOT be supported
+2025-06-23 22:05:47,661 | system.reception_client:283 | INFO | log_component_status() | ✅ Reception_Client: ready
+2025-06-23 22:05:47,661 | src.container.system_container:260 | INFO | _initialize_component() | ✅ reception_client initialized
+2025-06-23 22:05:47,683 | system.agent_supervisor:283 | INFO | log_component_status() | ✅ Agent_Supervisor: ready
+2025-06-23 22:05:47,683 | src.container.system_container:260 | INFO | _initialize_component() | ✅ agent_supervisor initialized
+2025-06-23 22:05:47,691 | system.spectra_bot:283 | INFO | log_component_status() | ✅ Spectra_Bot: ready
+2025-06-23 22:05:47,691 | src.container.system_container:260 | INFO | _initialize_component() | ✅ spectra_bot initialized
+2025-06-23 22:05:47,691 | system.lynq_bot:283 | INFO | log_component_status() | ✅ Lynq_Bot: ready
+2025-06-23 22:05:47,692 | src.container.system_container:260 | INFO | _initialize_component() | ✅ lynq_bot initialized
+2025-06-23 22:05:47,692 | system.paz_bot:283 | INFO | log_component_status() | ✅ Paz_Bot: ready
+2025-06-23 22:05:47,692 | src.container.system_container:260 | INFO | _initialize_component() | ✅ paz_bot initialized
+2025-06-23 22:05:47,692 | system.message_router:283 | INFO | log_component_status() | ✅ Message_Router: ready
+2025-06-23 22:05:47,692 | src.container.system_container:260 | INFO | _initialize_component() | ✅ message_router initialized
+2025-06-23 22:05:47,967 | src.infrastructure.memory_system:135 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-23 22:05:47,976 | system.long_term_memory_processor:283 | INFO | log_component_status() | ✅ Long_Term_Memory_Processor: ready
+2025-06-23 22:05:47,976 | src.container.system_container:260 | INFO | _initialize_component() | ✅ long_term_memory_processor initialized
+2025-06-23 22:05:47,977 | system.daily_report_generator:283 | INFO | log_component_status() | ✅ Daily_Report_Generator: ready
+2025-06-23 22:05:47,977 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_report_generator initialized
+2025-06-23 22:05:47,977 | system.integrated_message_system:283 | INFO | log_component_status() | ✅ Integrated_Message_System: ready
+2025-06-23 22:05:47,978 | src.container.system_container:260 | INFO | _initialize_component() | ✅ integrated_message_system initialized
+2025-06-23 22:05:47,978 | system.event_driven_workflow_orchestrator:283 | INFO | log_component_status() | ✅ Event_Driven_Workflow_Orchestrator: ready
+2025-06-23 22:05:47,978 | src.container.system_container:260 | INFO | _initialize_component() | ✅ event_driven_workflow_orchestrator initialized
+2025-06-23 22:05:47,978 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-23 22:05:47,978 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_workflow initialized
+2025-06-23 22:05:47,979 | src.agents.autonomous_speech:166 | INFO | __init__() | 🎙️ LLM統合型 Autonomous Speech System initialized for production
+2025-06-23 22:05:47,979 | src.agents.autonomous_speech:167 | INFO | __init__() | 📊 Speech probability: 33%
+2025-06-23 22:05:47,979 | src.agents.autonomous_speech:168 | INFO | __init__() | ⏱️ Tick interval: 300秒
+2025-06-23 22:05:47,979 | src.agents.autonomous_speech:170 | INFO | __init__() | 🔗 Workflow integration enabled
+2025-06-23 22:05:47,979 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-23 22:05:47,980 | src.container.system_container:260 | INFO | _initialize_component() | ✅ autonomous_speech initialized
+2025-06-23 22:05:47,980 | system.system_container:283 | INFO | log_component_status() | ✅ System_Container: ready (16 components)
+2025-06-23 22:05:47,980 | src.container.system_container:195 | INFO | initialize() | ✅ System Container initialized with 16 components
+2025-06-23 22:05:47,980 | __main__:43 | INFO | main() | ✅ System Container initialized with dependency injection
+2025-06-23 22:05:47,980 | __main__:46 | INFO | main() | 🎯 Creating Application Service...
+2025-06-23 22:05:47,980 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (All components initialized)
+2025-06-23 22:05:47,980 | src.application.discord_app_service:72 | INFO | _initialize_components() | ✅ Discord Application Service components initialized
+2025-06-23 22:05:47,980 | __main__:48 | INFO | main() | ✅ Discord Application Service created
+2025-06-23 22:05:47,980 | __main__:51 | INFO | main() | 🔄 Setting up System Lifecycle Manager...
+2025-06-23 22:05:47,980 | system.system_lifecycle:283 | INFO | log_component_status() | ✅ System_Lifecycle: ready
+2025-06-23 22:05:47,980 | __main__:50 | INFO | __init__() | 🔄 System Lifecycle Manager initialized
+2025-06-23 22:05:47,980 | system.signal_handlers:283 | INFO | log_component_status() | ✅ Signal_Handlers: ready
+2025-06-23 22:05:47,980 | __main__:64 | INFO | setup_signal_handlers() | 📡 Signal handlers configured (SIGINT, SIGTERM)
+2025-06-23 22:05:47,980 | __main__:54 | INFO | main() | ✅ System Lifecycle Manager ready
+2025-06-23 22:05:47,980 | __main__:57 | INFO | main() | ▶️ Starting main application loop...
+2025-06-23 22:05:47,980 | __main__:120 | INFO | run() | 🚀 Starting system lifecycle management
+2025-06-23 22:05:47,980 | __main__:146 | INFO | _startup_phase() | 🔄 Entering startup phase...
+2025-06-23 22:05:47,980 | system.system_lifecycle:283 | INFO | log_component_status() | 🔄 System_Lifecycle: starting
+2025-06-23 22:05:47,981 | src.application.discord_app_service:81 | INFO | start_application() | 🚀 Starting Discord Multi-Agent Application
+2025-06-23 22:05:47,981 | src.application.discord_app_service:82 | INFO | start_application() | Architecture: 統合受信・個別送信型 (Clean Architecture)
+2025-06-23 22:05:47,981 | src.application.discord_app_service:105 | INFO | _initialize_memory_system() | 🧠 Initializing Memory System connections...
+2025-06-23 22:05:47,983 | src.infrastructure.memory_system:173 | INFO | initialize() | ✅ Redis Hot Memory connected with connection pool
+2025-06-23 22:05:48,016 | src.infrastructure.memory_system:203 | INFO | initialize() | ✅ PostgreSQL Cold Memory connected with pgvector
+2025-06-23 22:05:48,016 | src.infrastructure.memory_system:212 | INFO | initialize() | 🧠 Discord Memory System initialized successfully
+2025-06-23 22:05:48,017 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-23 22:05:48,017 | src.application.discord_app_service:111 | INFO | _initialize_memory_system() | ✅ Memory System initialized successfully
+2025-06-23 22:05:48,017 | src.utils.health:273 | INFO | start() | Health check server started on port 8000
+2025-06-23 22:05:48,017 | src.utils.health:274 | INFO | start() | Health endpoints:
+2025-06-23 22:05:48,017 | src.utils.health:275 | INFO | start() |   - GET /health        - Overall health
+2025-06-23 22:05:48,017 | src.utils.health:276 | INFO | start() |   - GET /health/live   - Liveness probe
+2025-06-23 22:05:48,017 | src.utils.health:277 | INFO | start() |   - GET /health/ready  - Readiness probe
+2025-06-23 22:05:48,017 | src.utils.health:278 | INFO | start() |   - GET /metrics       - Prometheus metrics
+2025-06-23 22:05:48,017 | src.utils.health:279 | INFO | start() |   - GET /status        - Detailed status
+2025-06-23 22:05:48,017 | system.health_monitoring:283 | INFO | log_component_status() | ✅ Health_Monitoring: ready (port 8000)
+2025-06-23 22:05:48,017 | src.application.discord_app_service:141 | INFO | _setup_health_monitoring() | ✅ Health monitoring started on port 8000
+2025-06-23 22:05:48,018 | src.core.daily_workflow:100 | INFO | start() | 🚀 Daily Workflow System 開始
+2025-06-23 22:05:48,018 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-23 22:05:48,018 | src.application.discord_app_service:153 | INFO | _start_workflow_systems() | ✅ Daily Workflow System started
+2025-06-23 22:05:48,018 | src.agents.autonomous_speech:184 | INFO | start() | 🚀 Autonomous Speech System 開始
+2025-06-23 22:05:48,018 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-23 22:05:48,018 | src.application.discord_app_service:158 | INFO | _start_workflow_systems() | ✅ Autonomous Speech System started
+2025-06-23 22:05:48,018 | src.core.daily_workflow:118 | INFO | _workflow_loop() | 🔄 Workflow monitoring loop started
+2025-06-23 22:05:48,018 | src.agents.autonomous_speech:202 | INFO | _speech_loop() | 🔄 Autonomous speech monitoring loop started
+2025-06-23 22:05:48,018 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 300 seconds for next autonomous speech check...
+2025-06-23 22:05:48,018 | src.application.discord_app_service:181 | INFO | _start_discord_clients() | 🔌 Starting Discord clients...
+2025-06-23 22:05:48,018 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Reception Client...
+2025-06-23 22:05:48,018 | src.application.discord_app_service:226 | INFO | _message_processing_loop() | 💬 Starting message processing loop...
+2025-06-23 22:05:48,018 | system.message_processing:283 | INFO | log_component_status() | ✅ Message_Processing: ready
+2025-06-23 22:05:48,018 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:05:49,078 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 6673938b55962f4dcd6f85e36693b59f).
+2025-06-23 22:05:50,020 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Reception Client connection initiated successfully
+2025-06-23 22:05:50,020 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Spectra Bot...
+2025-06-23 22:05:50,020 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:05:51,018 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 93954196f46397cb03cd98b56abbfb6d).
+2025-06-23 22:05:52,021 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Spectra Bot connection initiated successfully
+2025-06-23 22:05:52,021 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting LynQ Bot...
+2025-06-23 22:05:52,021 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:05:53,093 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 50da012431aacc170194ea14342c2f32).
+2025-06-23 22:05:54,023 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ LynQ Bot connection initiated successfully
+2025-06-23 22:05:54,023 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Paz Bot...
+2025-06-23 22:05:54,023 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:05:55,229 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: cb35db8d62082417957b510c00a8d4e9).
+2025-06-23 22:05:56,025 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Paz Bot connection initiated successfully
+2025-06-23 22:05:56,025 | system.discord_clients:283 | INFO | log_component_status() | ✅ Discord_Clients: ready (4/4 clients)
+2025-06-23 22:05:56,025 | src.application.discord_app_service:222 | INFO | _start_discord_clients() | 🎉 Successfully initiated 4/4 Discord clients
+2025-06-23 22:06:54,839 | src.application.discord_app_service:236 | INFO | _message_processing_loop() | 📝 Processing message: yaa...
+2025-06-23 22:06:54,842 | src.infrastructure.memory_system:275 | INFO | load_cold_memory() | 🔧 Cold Memory temporarily disabled (PostgreSQL function missing)
+2025-06-23 22:07:00,501 | src.infrastructure.memory_system:391 | ERROR | update_memory_transactional() | Memory update failed: column "guild_id" of relation "memories" does not exist
+2025-06-23 22:07:00,823 | src.application.discord_app_service:230 | INFO | log_performance() | ⚡ message_processed_by_spectra: 72.805s ()
+2025-06-23 22:07:00,823 | src.application.discord_app_service:368 | INFO | _record_message_performance() | ✅ Message processed successfully by spectra in 72.805s
+2025-06-23 22:11:08,863 | src.agents.autonomous_speech:209 | INFO | _speech_loop() | ⏰ Autonomous speech tick triggered!
+2025-06-23 22:11:08,864 | src.agents.autonomous_speech:216 | INFO | _speech_loop() | 🎲 Speech probability check failed: 33%
+2025-06-23 22:11:08,864 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 300 seconds for next autonomous speech check...
+2025-06-23 22:15:49,658 | __main__:74 | INFO | _signal_handler() | 📡 Received signal SIGINT (2)
+2025-06-23 22:15:49,660 | system.system_lifecycle:283 | INFO | log_component_status() | ⏹️ System_Lifecycle: stopping (signal SIGINT)
+2025-06-23 22:15:49,660 | __main__:96 | INFO | _request_graceful_shutdown() | 🛑 Graceful shutdown requested
+2025-06-23 22:15:50,373 | __main__:74 | INFO | _signal_handler() | 📡 Received signal SIGINT (2)
+2025-06-23 22:15:50,373 | __main__:83 | WARNING | _signal_handler() | ⚠️ Multiple shutdown signals received, forcing exit...
+2025-06-23 22:15:50,373 | __main__:191 | INFO | _shutdown_phase() | 🛑 Entering shutdown phase...
+2025-06-23 22:15:50,373 | system.system_lifecycle:283 | INFO | log_component_status() | ⏹️ System_Lifecycle: stopping
+2025-06-23 22:15:50,374 | system.shutdown:262 | INFO | log_system_shutdown() | 👋 Discord Multi-Agent System shutting down...
+2025-06-23 22:15:50,374 | __main__:216 | INFO | _shutdown_application_service() | 🛑 Stopping application service...
+2025-06-23 22:15:50,374 | src.application.discord_app_service:414 | INFO | stop_application() | 🛑 Stopping Discord Application Service...
+2025-06-23 22:15:50,374 | system.discord_app_service:283 | INFO | log_component_status() | ⏹️ Discord_App_Service: stopping
+2025-06-23 22:15:50,374 | system.daily_workflow:283 | INFO | log_component_status() | ⏹️ Daily_Workflow: stopping
+2025-06-23 22:15:50,374 | src.application.discord_app_service:442 | INFO | _stop_workflow_systems() | ✅ Daily Workflow System stopped
+2025-06-23 22:15:50,374 | system.autonomous_speech:283 | INFO | log_component_status() | ⏹️ Autonomous_Speech: stopping
+2025-06-23 22:15:50,374 | src.application.discord_app_service:450 | INFO | _stop_workflow_systems() | ✅ Autonomous Speech System stopped
+2025-06-23 22:15:50,685 | src.utils.health:290 | INFO | stop() | Health check server stopped
+2025-06-23 22:15:50,685 | system.health_monitoring:283 | INFO | log_component_status() | ⏹️ Health_Monitoring: stopping
+2025-06-23 22:15:50,685 | src.application.discord_app_service:460 | INFO | _stop_health_monitoring() | ✅ Health monitoring server stopped
+2025-06-23 22:15:50,686 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting Reception Client...
+2025-06-23 22:15:50,686 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ Reception Client disconnected successfully
+2025-06-23 22:15:50,686 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting Spectra Bot...
+2025-06-23 22:15:50,686 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ Spectra Bot disconnected successfully
+2025-06-23 22:15:50,687 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting LynQ Bot...
+2025-06-23 22:15:50,687 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ LynQ Bot disconnected successfully
+2025-06-23 22:15:50,687 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting Paz Bot...
+2025-06-23 22:15:50,687 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ Paz Bot disconnected successfully
+2025-06-23 22:15:50,687 | system.discord_clients:283 | INFO | log_component_status() | ⏹️ Discord_Clients: stopping
+2025-06-23 22:15:50,687 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (shutdown complete)
+2025-06-23 22:15:50,687 | src.application.discord_app_service:430 | INFO | stop_application() | ✅ Discord Application Service stopped successfully
+2025-06-23 22:15:50,687 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (stopped)
+2025-06-23 22:15:50,687 | __main__:219 | INFO | _shutdown_application_service() | ✅ Application service stopped successfully
+2025-06-23 22:15:50,687 | __main__:228 | INFO | _cleanup_system_container() | 🧹 Cleaning up system container...
+2025-06-23 22:15:50,687 | src.container.system_container:440 | INFO | cleanup() | 🧹 Cleaning up System Container...
+2025-06-23 22:15:50,688 | src.infrastructure.memory_system:490 | INFO | cleanup() | Redis connection closed
+2025-06-23 22:15:50,688 | src.infrastructure.memory_system:494 | INFO | cleanup() | PostgreSQL pool closed
+2025-06-23 22:15:50,688 | system.system_container:283 | INFO | log_component_status() | ⏹️ System_Container: stopping
+2025-06-23 22:15:50,688 | src.container.system_container:460 | INFO | cleanup() | ✅ System Container cleanup completed
+2025-06-23 22:15:50,688 | system.system_container:283 | INFO | log_component_status() | ✅ System_Container: ready (cleanup complete)
+2025-06-23 22:15:50,688 | __main__:231 | INFO | _cleanup_system_container() | ✅ System container cleanup completed
+2025-06-23 22:15:50,688 | system.signal_handlers:283 | INFO | log_component_status() | ✅ Signal_Handlers: ready (restored)
+2025-06-23 22:15:50,688 | __main__:251 | INFO | _restore_signal_handlers() | 📡 Signal handlers restored
+2025-06-23 22:15:50,688 | system.system_lifecycle:283 | INFO | log_component_status() | ✅ System_Lifecycle: ready (shutdown complete)
+2025-06-23 22:15:50,688 | __main__:207 | INFO | _shutdown_phase() | ✅ System shutdown phase completed
+2025-06-23 22:15:50,688 | __main__:142 | INFO | run() | 📊 System uptime: 0:10:02.707546
+2025-06-23 22:16:28,088 | src.utils.logger:99 | INFO | setup_logging() | 🚀 Logging system initialized
+2025-06-23 22:16:28,089 | src.utils.logger:100 | INFO | setup_logging() | Log level: INFO
+2025-06-23 22:16:28,089 | src.utils.logger:101 | INFO | setup_logging() | Log file: logs/discord_agent.log
+2025-06-23 22:16:28,089 | src.utils.logger:102 | INFO | setup_logging() | Environment: production
+2025-06-23 22:16:28,089 | system.startup:254 | INFO | log_system_startup() | 🚀 Discord Multi-Agent System starting...
+2025-06-23 22:16:28,089 | system.startup:255 | INFO | log_system_startup() | 🌍 Environment: production
+2025-06-23 22:16:28,089 | system.startup:256 | INFO | log_system_startup() | 🔧 Clean Architecture v0.2.2
+2025-06-23 22:16:28,089 | __main__:36 | INFO | main() | 🚀 Starting Discord Multi-Agent System v0.2.2
+2025-06-23 22:16:28,089 | __main__:37 | INFO | main() | 🏗️ Architecture: Clean Architecture + 統合受信・個別送信型
+2025-06-23 22:16:28,089 | __main__:40 | INFO | main() | 🔧 Initializing System Container...
+2025-06-23 22:16:28,089 | src.container.system_container:182 | INFO | initialize() | 🔧 Initializing System Container...
+2025-06-23 22:16:28,089 | system.system_container:283 | INFO | log_component_status() | 🔄 System_Container: starting
+2025-06-23 22:16:28,089 | src.container.system_container:230 | INFO | _resolve_initialization_order() | 🔄 Component initialization order: settings → priority_queue → gemini_client → memory_system → reception_client → agent_supervisor → spectra_bot → lynq_bot → paz_bot → message_router → long_term_memory_processor → daily_report_generator → integrated_message_system → event_driven_workflow_orchestrator → daily_workflow → autonomous_speech
+2025-06-23 22:16:28,089 | system.settings:283 | INFO | log_component_status() | ✅ Settings: ready
+2025-06-23 22:16:28,089 | src.container.system_container:260 | INFO | _initialize_component() | ✅ settings initialized
+2025-06-23 22:16:28,089 | system.priority_queue:283 | INFO | log_component_status() | ✅ Priority_Queue: ready
+2025-06-23 22:16:28,089 | src.container.system_container:260 | INFO | _initialize_component() | ✅ priority_queue initialized
+2025-06-23 22:16:28,922 | system.gemini_client:283 | INFO | log_component_status() | ✅ Gemini_Client: ready
+2025-06-23 22:16:28,922 | src.container.system_container:260 | INFO | _initialize_component() | ✅ gemini_client initialized
+2025-06-23 22:16:28,969 | src.infrastructure.memory_system:135 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-23 22:16:28,970 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-23 22:16:28,970 | src.container.system_container:260 | INFO | _initialize_component() | ✅ memory_system initialized
+2025-06-23 22:16:29,051 | discord.client:295 | WARNING | __init__() | PyNaCl is not installed, voice will NOT be supported
+2025-06-23 22:16:29,051 | system.reception_client:283 | INFO | log_component_status() | ✅ Reception_Client: ready
+2025-06-23 22:16:29,051 | src.container.system_container:260 | INFO | _initialize_component() | ✅ reception_client initialized
+2025-06-23 22:16:29,090 | system.agent_supervisor:283 | INFO | log_component_status() | ✅ Agent_Supervisor: ready
+2025-06-23 22:16:29,090 | src.container.system_container:260 | INFO | _initialize_component() | ✅ agent_supervisor initialized
+2025-06-23 22:16:29,102 | system.spectra_bot:283 | INFO | log_component_status() | ✅ Spectra_Bot: ready
+2025-06-23 22:16:29,102 | src.container.system_container:260 | INFO | _initialize_component() | ✅ spectra_bot initialized
+2025-06-23 22:16:29,103 | system.lynq_bot:283 | INFO | log_component_status() | ✅ Lynq_Bot: ready
+2025-06-23 22:16:29,103 | src.container.system_container:260 | INFO | _initialize_component() | ✅ lynq_bot initialized
+2025-06-23 22:16:29,103 | system.paz_bot:283 | INFO | log_component_status() | ✅ Paz_Bot: ready
+2025-06-23 22:16:29,103 | src.container.system_container:260 | INFO | _initialize_component() | ✅ paz_bot initialized
+2025-06-23 22:16:29,103 | system.message_router:283 | INFO | log_component_status() | ✅ Message_Router: ready
+2025-06-23 22:16:29,104 | src.container.system_container:260 | INFO | _initialize_component() | ✅ message_router initialized
+2025-06-23 22:16:29,537 | src.infrastructure.memory_system:135 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-23 22:16:29,548 | system.long_term_memory_processor:283 | INFO | log_component_status() | ✅ Long_Term_Memory_Processor: ready
+2025-06-23 22:16:29,548 | src.container.system_container:260 | INFO | _initialize_component() | ✅ long_term_memory_processor initialized
+2025-06-23 22:16:29,550 | system.daily_report_generator:283 | INFO | log_component_status() | ✅ Daily_Report_Generator: ready
+2025-06-23 22:16:29,550 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_report_generator initialized
+2025-06-23 22:16:29,550 | system.integrated_message_system:283 | INFO | log_component_status() | ✅ Integrated_Message_System: ready
+2025-06-23 22:16:29,550 | src.container.system_container:260 | INFO | _initialize_component() | ✅ integrated_message_system initialized
+2025-06-23 22:16:29,550 | system.event_driven_workflow_orchestrator:283 | INFO | log_component_status() | ✅ Event_Driven_Workflow_Orchestrator: ready
+2025-06-23 22:16:29,550 | src.container.system_container:260 | INFO | _initialize_component() | ✅ event_driven_workflow_orchestrator initialized
+2025-06-23 22:16:29,551 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-23 22:16:29,552 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_workflow initialized
+2025-06-23 22:16:29,559 | src.agents.autonomous_speech:166 | INFO | __init__() | 🎙️ LLM統合型 Autonomous Speech System initialized for production
+2025-06-23 22:16:29,559 | src.agents.autonomous_speech:167 | INFO | __init__() | 📊 Speech probability: 100%
+2025-06-23 22:16:29,559 | src.agents.autonomous_speech:168 | INFO | __init__() | ⏱️ Tick interval: 10秒
+2025-06-23 22:16:29,559 | src.agents.autonomous_speech:170 | INFO | __init__() | 🔗 Workflow integration enabled
+2025-06-23 22:16:29,559 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-23 22:16:29,559 | src.container.system_container:260 | INFO | _initialize_component() | ✅ autonomous_speech initialized
+2025-06-23 22:16:29,559 | system.system_container:283 | INFO | log_component_status() | ✅ System_Container: ready (16 components)
+2025-06-23 22:16:29,559 | src.container.system_container:195 | INFO | initialize() | ✅ System Container initialized with 16 components
+2025-06-23 22:16:29,559 | __main__:43 | INFO | main() | ✅ System Container initialized with dependency injection
+2025-06-23 22:16:29,559 | __main__:46 | INFO | main() | 🎯 Creating Application Service...
+2025-06-23 22:16:29,559 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (All components initialized)
+2025-06-23 22:16:29,559 | src.application.discord_app_service:72 | INFO | _initialize_components() | ✅ Discord Application Service components initialized
+2025-06-23 22:16:29,559 | __main__:48 | INFO | main() | ✅ Discord Application Service created
+2025-06-23 22:16:29,559 | __main__:51 | INFO | main() | 🔄 Setting up System Lifecycle Manager...
+2025-06-23 22:16:29,560 | system.system_lifecycle:283 | INFO | log_component_status() | ✅ System_Lifecycle: ready
+2025-06-23 22:16:29,560 | __main__:50 | INFO | __init__() | 🔄 System Lifecycle Manager initialized
+2025-06-23 22:16:29,560 | system.signal_handlers:283 | INFO | log_component_status() | ✅ Signal_Handlers: ready
+2025-06-23 22:16:29,560 | __main__:64 | INFO | setup_signal_handlers() | 📡 Signal handlers configured (SIGINT, SIGTERM)
+2025-06-23 22:16:29,560 | __main__:54 | INFO | main() | ✅ System Lifecycle Manager ready
+2025-06-23 22:16:29,560 | __main__:57 | INFO | main() | ▶️ Starting main application loop...
+2025-06-23 22:16:29,560 | __main__:120 | INFO | run() | 🚀 Starting system lifecycle management
+2025-06-23 22:16:29,560 | __main__:146 | INFO | _startup_phase() | 🔄 Entering startup phase...
+2025-06-23 22:16:29,560 | system.system_lifecycle:283 | INFO | log_component_status() | 🔄 System_Lifecycle: starting
+2025-06-23 22:16:29,560 | src.application.discord_app_service:81 | INFO | start_application() | 🚀 Starting Discord Multi-Agent Application
+2025-06-23 22:16:29,560 | src.application.discord_app_service:82 | INFO | start_application() | Architecture: 統合受信・個別送信型 (Clean Architecture)
+2025-06-23 22:16:29,560 | src.application.discord_app_service:105 | INFO | _initialize_memory_system() | 🧠 Initializing Memory System connections...
+2025-06-23 22:16:29,562 | src.infrastructure.memory_system:173 | INFO | initialize() | ✅ Redis Hot Memory connected with connection pool
+2025-06-23 22:16:29,607 | src.infrastructure.memory_system:203 | INFO | initialize() | ✅ PostgreSQL Cold Memory connected with pgvector
+2025-06-23 22:16:29,607 | src.infrastructure.memory_system:212 | INFO | initialize() | 🧠 Discord Memory System initialized successfully
+2025-06-23 22:16:29,607 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-23 22:16:29,607 | src.application.discord_app_service:111 | INFO | _initialize_memory_system() | ✅ Memory System initialized successfully
+2025-06-23 22:16:29,608 | src.utils.health:273 | INFO | start() | Health check server started on port 8000
+2025-06-23 22:16:29,608 | src.utils.health:274 | INFO | start() | Health endpoints:
+2025-06-23 22:16:29,608 | src.utils.health:275 | INFO | start() |   - GET /health        - Overall health
+2025-06-23 22:16:29,608 | src.utils.health:276 | INFO | start() |   - GET /health/live   - Liveness probe
+2025-06-23 22:16:29,608 | src.utils.health:277 | INFO | start() |   - GET /health/ready  - Readiness probe
+2025-06-23 22:16:29,608 | src.utils.health:278 | INFO | start() |   - GET /metrics       - Prometheus metrics
+2025-06-23 22:16:29,608 | src.utils.health:279 | INFO | start() |   - GET /status        - Detailed status
+2025-06-23 22:16:29,608 | system.health_monitoring:283 | INFO | log_component_status() | ✅ Health_Monitoring: ready (port 8000)
+2025-06-23 22:16:29,608 | src.application.discord_app_service:141 | INFO | _setup_health_monitoring() | ✅ Health monitoring started on port 8000
+2025-06-23 22:16:29,608 | src.core.daily_workflow:100 | INFO | start() | 🚀 Daily Workflow System 開始
+2025-06-23 22:16:29,608 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-23 22:16:29,608 | src.application.discord_app_service:153 | INFO | _start_workflow_systems() | ✅ Daily Workflow System started
+2025-06-23 22:16:29,608 | src.agents.autonomous_speech:184 | INFO | start() | 🚀 Autonomous Speech System 開始
+2025-06-23 22:16:29,608 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-23 22:16:29,608 | src.application.discord_app_service:158 | INFO | _start_workflow_systems() | ✅ Autonomous Speech System started
+2025-06-23 22:16:29,608 | src.core.daily_workflow:118 | INFO | _workflow_loop() | 🔄 Workflow monitoring loop started
+2025-06-23 22:16:29,609 | src.agents.autonomous_speech:202 | INFO | _speech_loop() | 🔄 Autonomous speech monitoring loop started
+2025-06-23 22:16:29,609 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 10 seconds for next autonomous speech check...
+2025-06-23 22:16:29,609 | src.application.discord_app_service:181 | INFO | _start_discord_clients() | 🔌 Starting Discord clients...
+2025-06-23 22:16:29,609 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Reception Client...
+2025-06-23 22:16:29,609 | src.application.discord_app_service:226 | INFO | _message_processing_loop() | 💬 Starting message processing loop...
+2025-06-23 22:16:29,609 | system.message_processing:283 | INFO | log_component_status() | ✅ Message_Processing: ready
+2025-06-23 22:16:29,609 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:16:30,778 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 43b33e34c8c29c76e9bbe21e144a02a0).
+2025-06-23 22:16:33,887 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Reception Client connection initiated successfully
+2025-06-23 22:16:33,888 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Spectra Bot...
+2025-06-23 22:16:33,888 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:16:35,114 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 683d4b6943b2c05c1717b679d2ab9056).
+2025-06-23 22:16:35,889 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Spectra Bot connection initiated successfully
+2025-06-23 22:16:35,889 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting LynQ Bot...
+2025-06-23 22:16:35,889 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:16:37,233 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: 58c610e1b592fd172971aa588d1cf48a).
+2025-06-23 22:16:37,890 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ LynQ Bot connection initiated successfully
+2025-06-23 22:16:37,890 | src.application.discord_app_service:195 | INFO | _start_discord_clients() | 🔌 Connecting Paz Bot...
+2025-06-23 22:16:37,890 | discord.client:603 | INFO | login() | logging in using static token
+2025-06-23 22:16:38,935 | discord.gateway:561 | INFO | received_message() | Shard ID None has connected to Gateway (Session ID: c4d31257e385f75c86c29f030a28c975).
+2025-06-23 22:16:39,891 | src.application.discord_app_service:205 | INFO | _start_discord_clients() | ✅ Paz Bot connection initiated successfully
+2025-06-23 22:16:39,891 | system.discord_clients:283 | INFO | log_component_status() | ✅ Discord_Clients: ready (4/4 clients)
+2025-06-23 22:16:39,891 | src.application.discord_app_service:222 | INFO | _start_discord_clients() | 🎉 Successfully initiated 4/4 Discord clients
+2025-06-23 22:16:41,886 | src.agents.autonomous_speech:209 | INFO | _speech_loop() | ⏰ Autonomous speech tick triggered!
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:213 | INFO | _speech_loop() | 🎲 Speech probability check passed: 100%
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:229 | INFO | _execute_autonomous_speech() | 🔍 Current phase: WorkflowPhase.FREE
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:284 | INFO | _get_available_channel() | 🔍 _get_available_channel called with phase: WorkflowPhase.FREE
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:285 | INFO | _get_available_channel() | 🔍 workflow_system: <src.core.daily_workflow.DailyWorkflowSystem object at 0x7f6a41444a40>
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:290 | INFO | _get_available_channel() | 🔍 Active tasks: {}
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:300 | INFO | _get_available_channel() | 🔍 Phase-based channel selection: WorkflowPhase.FREE (value: free)
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:305 | INFO | _get_available_channel() | 🔍 FREE phase -> lounge
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:317 | INFO | _get_channel_id_by_name() | 🔍 All available channel_ids: {'command_center': 1383963657137946664, 'lounge': 1383966355962990653, 'development': 1383968516033478727, 'creation': 1383981653046726728}
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:321 | INFO | _get_channel_id_by_name() | ✅ Channel mapping: lounge -> 1383966355962990653
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:236 | INFO | _execute_autonomous_speech() | 🔍 Available channel: 1383966355962990653
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:465 | INFO | _queue_autonomous_message() | 📝 Autonomous message queued: paz -> #1383966355962990653
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:263 | INFO | _execute_autonomous_speech() | 🎙️ LLM統合自発発言実行: paz -> #1383966355962990653
+2025-06-23 22:16:41,887 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 10 seconds for next autonomous speech check...
+2025-06-23 22:16:41,887 | src.application.discord_app_service:236 | INFO | _message_processing_loop() | 📝 Processing message: 🎨 **アート的発想** 今日は何か美しいものや面白いものに出会いましたか？創造性を刺激する体験を共...
+2025-06-23 22:16:41,887 | src.application.discord_app_service:314 | INFO | _process_autonomous_speech() | 🎙️ 自発発言処理: paz -> #1383966355962990653
+2025-06-23 22:16:42,194 | src.application.discord_app_service:230 | INFO | log_performance() | ⚡ message_processed_by_paz: 12.586s ()
+2025-06-23 22:16:42,195 | src.application.discord_app_service:368 | INFO | _record_message_performance() | ✅ Message processed successfully by paz in 12.586s
+2025-06-23 22:16:51,888 | src.agents.autonomous_speech:209 | INFO | _speech_loop() | ⏰ Autonomous speech tick triggered!
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:213 | INFO | _speech_loop() | 🎲 Speech probability check passed: 100%
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:229 | INFO | _execute_autonomous_speech() | 🔍 Current phase: WorkflowPhase.FREE
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:284 | INFO | _get_available_channel() | 🔍 _get_available_channel called with phase: WorkflowPhase.FREE
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:285 | INFO | _get_available_channel() | 🔍 workflow_system: <src.core.daily_workflow.DailyWorkflowSystem object at 0x7f6a41444a40>
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:290 | INFO | _get_available_channel() | 🔍 Active tasks: {}
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:300 | INFO | _get_available_channel() | 🔍 Phase-based channel selection: WorkflowPhase.FREE (value: free)
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:305 | INFO | _get_available_channel() | 🔍 FREE phase -> lounge
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:317 | INFO | _get_channel_id_by_name() | 🔍 All available channel_ids: {'command_center': 1383963657137946664, 'lounge': 1383966355962990653, 'development': 1383968516033478727, 'creation': 1383981653046726728}
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:321 | INFO | _get_channel_id_by_name() | ✅ Channel mapping: lounge -> 1383966355962990653
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:236 | INFO | _execute_autonomous_speech() | 🔍 Available channel: 1383966355962990653
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:465 | INFO | _queue_autonomous_message() | 📝 Autonomous message queued: lynq -> #1383966355962990653
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:263 | INFO | _execute_autonomous_speech() | 🎙️ LLM統合自発発言実行: lynq -> #1383966355962990653
+2025-06-23 22:16:51,889 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 10 seconds for next autonomous speech check...
+2025-06-23 22:16:51,889 | src.application.discord_app_service:236 | INFO | _message_processing_loop() | 📝 Processing message: 🔧 **実装効率化** 開発プロセスで自動化できる部分はありませんか？ツールやワークフローの改善を検...
+2025-06-23 22:16:51,889 | src.application.discord_app_service:314 | INFO | _process_autonomous_speech() | 🎙️ 自発発言処理: lynq -> #1383966355962990653
+2025-06-23 22:16:52,200 | src.application.discord_app_service:230 | INFO | log_performance() | ⚡ message_processed_by_lynq: 10.005s ()
+2025-06-23 22:16:52,200 | src.application.discord_app_service:368 | INFO | _record_message_performance() | ✅ Message processed successfully by lynq in 10.005s
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:209 | INFO | _speech_loop() | ⏰ Autonomous speech tick triggered!
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:213 | INFO | _speech_loop() | 🎲 Speech probability check passed: 100%
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:229 | INFO | _execute_autonomous_speech() | 🔍 Current phase: WorkflowPhase.FREE
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:284 | INFO | _get_available_channel() | 🔍 _get_available_channel called with phase: WorkflowPhase.FREE
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:285 | INFO | _get_available_channel() | 🔍 workflow_system: <src.core.daily_workflow.DailyWorkflowSystem object at 0x7f6a41444a40>
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:290 | INFO | _get_available_channel() | 🔍 Active tasks: {}
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:300 | INFO | _get_available_channel() | 🔍 Phase-based channel selection: WorkflowPhase.FREE (value: free)
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:305 | INFO | _get_available_channel() | 🔍 FREE phase -> lounge
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:317 | INFO | _get_channel_id_by_name() | 🔍 All available channel_ids: {'command_center': 1383963657137946664, 'lounge': 1383966355962990653, 'development': 1383968516033478727, 'creation': 1383981653046726728}
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:321 | INFO | _get_channel_id_by_name() | ✅ Channel mapping: lounge -> 1383966355962990653
+2025-06-23 22:17:01,894 | src.agents.autonomous_speech:236 | INFO | _execute_autonomous_speech() | 🔍 Available channel: 1383966355962990653
+2025-06-23 22:17:01,895 | src.agents.autonomous_speech:465 | INFO | _queue_autonomous_message() | 📝 Autonomous message queued: paz -> #1383966355962990653
+2025-06-23 22:17:01,895 | src.agents.autonomous_speech:263 | INFO | _execute_autonomous_speech() | 🎙️ LLM統合自発発言実行: paz -> #1383966355962990653
+2025-06-23 22:17:01,895 | src.agents.autonomous_speech:207 | INFO | _speech_loop() | ⏱️ Waiting 10 seconds for next autonomous speech check...
+2025-06-23 22:17:01,895 | src.application.discord_app_service:236 | INFO | _message_processing_loop() | 📝 Processing message: 🚀 **革新的チャレンジ** 誰もやったことがない新しい試みを考えてみませんか？リスクを恐れず、創造...
+2025-06-23 22:17:01,895 | src.application.discord_app_service:314 | INFO | _process_autonomous_speech() | 🎙️ 自発発言処理: paz -> #1383966355962990653
+2025-06-23 22:17:02,236 | src.application.discord_app_service:230 | INFO | log_performance() | ⚡ message_processed_by_paz: 10.036s ()
+2025-06-23 22:17:02,236 | src.application.discord_app_service:368 | INFO | _record_message_performance() | ✅ Message processed successfully by paz in 10.036s
+2025-06-23 22:17:04,837 | __main__:74 | INFO | _signal_handler() | 📡 Received signal SIGINT (2)
+2025-06-23 22:17:04,837 | system.system_lifecycle:283 | INFO | log_component_status() | ⏹️ System_Lifecycle: stopping (signal SIGINT)
+2025-06-23 22:17:04,837 | __main__:96 | INFO | _request_graceful_shutdown() | 🛑 Graceful shutdown requested
+2025-06-23 22:17:05,834 | __main__:74 | INFO | _signal_handler() | 📡 Received signal SIGINT (2)
+2025-06-23 22:17:05,834 | __main__:83 | WARNING | _signal_handler() | ⚠️ Multiple shutdown signals received, forcing exit...
+2025-06-23 22:17:05,835 | __main__:191 | INFO | _shutdown_phase() | 🛑 Entering shutdown phase...
+2025-06-23 22:17:05,835 | system.system_lifecycle:283 | INFO | log_component_status() | ⏹️ System_Lifecycle: stopping
+2025-06-23 22:17:05,835 | system.shutdown:262 | INFO | log_system_shutdown() | 👋 Discord Multi-Agent System shutting down...
+2025-06-23 22:17:05,835 | __main__:216 | INFO | _shutdown_application_service() | 🛑 Stopping application service...
+2025-06-23 22:17:05,835 | src.application.discord_app_service:414 | INFO | stop_application() | 🛑 Stopping Discord Application Service...
+2025-06-23 22:17:05,835 | system.discord_app_service:283 | INFO | log_component_status() | ⏹️ Discord_App_Service: stopping
+2025-06-23 22:17:05,835 | system.daily_workflow:283 | INFO | log_component_status() | ⏹️ Daily_Workflow: stopping
+2025-06-23 22:17:05,835 | src.application.discord_app_service:442 | INFO | _stop_workflow_systems() | ✅ Daily Workflow System stopped
+2025-06-23 22:17:05,835 | system.autonomous_speech:283 | INFO | log_component_status() | ⏹️ Autonomous_Speech: stopping
+2025-06-23 22:17:05,835 | src.application.discord_app_service:450 | INFO | _stop_workflow_systems() | ✅ Autonomous Speech System stopped
+2025-06-23 22:17:05,933 | src.utils.health:290 | INFO | stop() | Health check server stopped
+2025-06-23 22:17:05,933 | system.health_monitoring:283 | INFO | log_component_status() | ⏹️ Health_Monitoring: stopping
+2025-06-23 22:17:05,933 | src.application.discord_app_service:460 | INFO | _stop_health_monitoring() | ✅ Health monitoring server stopped
+2025-06-23 22:17:05,933 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting Reception Client...
+2025-06-23 22:17:05,933 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ Reception Client disconnected successfully
+2025-06-23 22:17:05,933 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting Spectra Bot...
+2025-06-23 22:17:05,934 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ Spectra Bot disconnected successfully
+2025-06-23 22:17:05,934 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting LynQ Bot...
+2025-06-23 22:17:05,934 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ LynQ Bot disconnected successfully
+2025-06-23 22:17:05,934 | src.application.discord_app_service:468 | INFO | _disconnect_discord_clients() | 🔌 Disconnecting Paz Bot...
+2025-06-23 22:17:05,934 | src.application.discord_app_service:482 | INFO | _disconnect_discord_clients() | ✅ Paz Bot disconnected successfully
+2025-06-23 22:17:05,934 | system.discord_clients:283 | INFO | log_component_status() | ⏹️ Discord_Clients: stopping
+2025-06-23 22:17:05,934 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (shutdown complete)
+2025-06-23 22:17:05,934 | src.application.discord_app_service:430 | INFO | stop_application() | ✅ Discord Application Service stopped successfully
+2025-06-23 22:17:05,934 | system.discord_app_service:283 | INFO | log_component_status() | ✅ Discord_App_Service: ready (stopped)
+2025-06-23 22:17:05,934 | __main__:219 | INFO | _shutdown_application_service() | ✅ Application service stopped successfully
+2025-06-23 22:17:05,934 | __main__:228 | INFO | _cleanup_system_container() | 🧹 Cleaning up system container...
+2025-06-23 22:17:05,934 | src.container.system_container:440 | INFO | cleanup() | 🧹 Cleaning up System Container...
+2025-06-23 22:17:05,934 | src.infrastructure.memory_system:490 | INFO | cleanup() | Redis connection closed
+2025-06-23 22:17:05,937 | src.infrastructure.memory_system:494 | INFO | cleanup() | PostgreSQL pool closed
+2025-06-23 22:17:05,937 | system.system_container:283 | INFO | log_component_status() | ⏹️ System_Container: stopping
+2025-06-23 22:17:05,937 | src.container.system_container:460 | INFO | cleanup() | ✅ System Container cleanup completed
+2025-06-23 22:17:05,937 | system.system_container:283 | INFO | log_component_status() | ✅ System_Container: ready (cleanup complete)
+2025-06-23 22:17:05,937 | __main__:231 | INFO | _cleanup_system_container() | ✅ System container cleanup completed
+2025-06-23 22:17:05,937 | system.signal_handlers:283 | INFO | log_component_status() | ✅ Signal_Handlers: ready (restored)
+2025-06-23 22:17:05,937 | __main__:251 | INFO | _restore_signal_handlers() | 📡 Signal handlers restored
+2025-06-23 22:17:05,937 | system.system_lifecycle:283 | INFO | log_component_status() | ✅ System_Lifecycle: ready (shutdown complete)
+2025-06-23 22:17:05,937 | __main__:207 | INFO | _shutdown_phase() | ✅ System shutdown phase completed
+2025-06-23 22:17:05,937 | __main__:142 | INFO | run() | 📊 System uptime: 0:00:36.377459
