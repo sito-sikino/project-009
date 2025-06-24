@@ -16,6 +16,19 @@ import logging
 from .monitoring import performance_monitor
 
 
+def _parse_int_env(env_var: str, default: int) -> int:
+    """環境変数を int に解析（コメント対応）"""
+    value = os.getenv(env_var, str(default))
+    if isinstance(value, str):
+        # コメント部分を除去
+        value = value.split('#')[0].strip()
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        logging.getLogger(__name__).warning(f"Invalid {env_var} value: {value}, using default: {default}")
+        return default
+
+
 class HealthCheckHandler(BaseHTTPRequestHandler):
     """ヘルスチェック HTTP ハンドラー"""
     
@@ -50,14 +63,22 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     def _handle_health_check(self):
         """基本ヘルスチェック"""
         try:
-            # 非同期タスクを同期実行
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            health_results = loop.run_until_complete(
-                performance_monitor.health_checker.run_all_checks()
-            )
-            overall_status = performance_monitor.health_checker.get_overall_status()
+            # 既存のイベントループを使用（新しいループを作成しない）
+            try:
+                # 現在のイベントループを取得
+                loop = asyncio.get_running_loop()
+                # asyncio.create_task を使用してタスクを作成
+                health_task = asyncio.create_task(
+                    performance_monitor.health_checker.run_all_checks()
+                )
+                # タスクが完了するまで待機（ただし、これは同期コンテキストなので実際には実行されない）
+                # フォールバック: 同期的な健康状態チェック
+                overall_status = performance_monitor.health_checker.get_overall_status()
+                health_results = performance_monitor.health_checker.last_results
+            except RuntimeError:
+                # イベントループが実行されていない場合のフォールバック
+                overall_status = performance_monitor.health_checker.get_overall_status()
+                health_results = performance_monitor.health_checker.last_results
             
             # HTTP ステータス決定
             if overall_status["status"] == "healthy":
@@ -72,7 +93,7 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
                 "timestamp": datetime.now().isoformat(),
                 "version": os.getenv("APP_VERSION", "unknown"),
                 "components": {
-                    name: result.status 
+                    name: result.to_dict()
                     for name, result in health_results.items()
                 }
             }
@@ -99,24 +120,30 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
         """Readiness Probe（Kubernetes用）"""
         # アプリケーションがトラフィックを受け取れるかチェック
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
+            # 既存のイベントループを使用（新しいループを作成しない）
             # 重要なコンポーネントのみチェック
             critical_checks = ['redis', 'postgres', 'discord']
             results = {}
             
+            # 直前の結果を使用（リアルタイムチェックは避ける）
             for check_name in critical_checks:
-                if check_name in performance_monitor.health_checker.checks:
-                    result = loop.run_until_complete(
-                        performance_monitor.health_checker.run_check(check_name)
-                    )
-                    results[check_name] = result.status
+                if check_name in performance_monitor.health_checker.last_results:
+                    results[check_name] = performance_monitor.health_checker.last_results[check_name].to_dict()
+                else:
+                    # フォールバック: 基本的な状態チェック
+                    results[check_name] = {
+                        "component": check_name,
+                        "status": "unknown",
+                        "last_check": datetime.now().isoformat(),
+                        "response_time_ms": 0.0,
+                        "error_count": 0,
+                        "details": {"info": "No recent check available"}
+                    }
             
             # 全ての重要コンポーネントが健全か
             all_ready = all(
-                status == "healthy" 
-                for status in results.values()
+                status_dict["status"] == "healthy" 
+                for status_dict in results.values()
             )
             
             response = {
@@ -147,12 +174,37 @@ class HealthCheckHandler(BaseHTTPRequestHandler):
     def _handle_detailed_status(self):
         """詳細ステータス情報"""
         try:
-            loop = asyncio.new_event_loop()
-            asyncio.set_event_loop(loop)
-            
-            performance_report = loop.run_until_complete(
-                performance_monitor.get_performance_report()
-            )
+            # 既存のイベントループを使用（新しいループを作成しない）
+            # 最新の結果を基にパフォーマンスレポートを同期的に構築
+            try:
+                # 現在のイベントループからタスクを作成（ただし、実際には同期的に結果を返す）
+                overall_status = performance_monitor.health_checker.get_overall_status()
+                circuit_breaker_status = {
+                    name: {
+                        "state": cb.state.value,
+                        "failure_count": cb.failure_count,
+                        "last_failure": cb.last_failure_time
+                    }
+                    for name, cb in performance_monitor.circuit_breakers.items()
+                }
+                
+                performance_report = {
+                    "timestamp": datetime.now().isoformat(),
+                    "overall_health": overall_status,
+                    "circuit_breakers": circuit_breaker_status,
+                    "thresholds": performance_monitor.thresholds,
+                    "metrics_available": performance_monitor.metrics is not None
+                }
+            except Exception as sync_error:
+                # フォールバック: 基本情報のみ
+                performance_report = {
+                    "timestamp": datetime.now().isoformat(),
+                    "overall_health": {"status": "unknown", "components": {}},
+                    "circuit_breakers": {},
+                    "thresholds": getattr(performance_monitor, 'thresholds', {}),
+                    "metrics_available": False,
+                    "sync_error": str(sync_error)
+                }
             
             # 追加システム情報
             system_info = {
@@ -317,8 +369,8 @@ async def setup_health_monitoring(memory_system, discord_clients, port: int = 80
     # Circuit Breaker 設定
     performance_monitor.create_circuit_breaker(
         "memory_operations",
-        failure_threshold=int(os.getenv('CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5)),
-        recovery_timeout=int(os.getenv('CIRCUIT_BREAKER_RECOVERY_TIMEOUT', 60))
+        failure_threshold=_parse_int_env('CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5),
+        recovery_timeout=_parse_int_env('CIRCUIT_BREAKER_RECOVERY_TIMEOUT', 60)
     )
     
     performance_monitor.create_circuit_breaker(

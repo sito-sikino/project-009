@@ -151,9 +151,37 @@ class DailyWorkflowSystem:
         return None
         
     def _is_event_executed_today(self, event: WorkflowEvent) -> bool:
-        """今日既に実行済みかチェック（簡易実装）"""
-        # TODO: より堅牢な実行履歴管理を実装
-        return False
+        """今日既に実行済みかチェック（Redis/メモリベース堅牢実装）"""
+        try:
+            # 今日の日付キー
+            today_key = datetime.now().strftime('%Y-%m-%d')
+            event_key = f"workflow_executed_{today_key}_{event.action}"
+            
+            # Redisから実行履歴を確認
+            if self.memory_system and hasattr(self.memory_system, 'redis_client'):
+                try:
+                    executed = self.memory_system.redis_client.get(event_key)
+                    if executed:
+                        logger.debug(f"⏭️ Event {event.action} already executed today (Redis)")
+                        return True
+                except Exception as redis_error:
+                    logger.warning(f"⚠️ Redis check failed for {event.action}: {redis_error}")
+            
+            # フォールバック: メモリベース実行履歴
+            if not hasattr(self, '_executed_events'):
+                self._executed_events = {}
+            
+            if event_key in self._executed_events:
+                logger.debug(f"⏭️ Event {event.action} already executed today (Memory)")
+                return True
+            
+            logger.debug(f"✅ Event {event.action} not yet executed today")
+            return False
+            
+        except Exception as e:
+            logger.error(f"❌ Event execution check failed for {event.action}: {e}")
+            # エラー時は実行していないものとして扱う（安全側）
+            return False
         
     async def _execute_event(self, event: WorkflowEvent):
         """イベント実行"""
@@ -169,6 +197,9 @@ class DailyWorkflowSystem:
             
             # フェーズ変更
             self.current_phase = event.phase
+            
+            # 実行履歴を記録
+            await self._mark_event_as_executed(event)
             
             logger.info(f"✅ Workflow event completed: {event.action}")
             
@@ -486,12 +517,91 @@ class DailyWorkflowSystem:
         self.user_override_active = False
         logger.info("🔄 User override expired, resuming normal workflow")
         
+    async def _mark_event_as_executed(self, event: WorkflowEvent):
+        """イベント実行履歴を記録"""
+        try:
+            # 今日の日付キー
+            today_key = datetime.now().strftime('%Y-%m-%d')
+            event_key = f"workflow_executed_{today_key}_{event.action}"
+            execution_time = datetime.now().isoformat()
+            
+            # Redisに実行履歴を保存（24時間TTL）
+            if self.memory_system and hasattr(self.memory_system, 'redis_client'):
+                try:
+                    # 実行情報を保存
+                    execution_data = {
+                        'event_action': event.action,
+                        'executed_at': execution_time,
+                        'phase': event.phase.value,
+                        'event_time': event.time.strftime('%H:%M:%S')
+                    }
+                    
+                    # 24時間TTLで保存
+                    self.memory_system.redis_client.setex(
+                        event_key, 
+                        24 * 60 * 60,  # 24時間
+                        json.dumps(execution_data)
+                    )
+                    
+                    logger.debug(f"📝 Event execution recorded in Redis: {event.action}")
+                    
+                except Exception as redis_error:
+                    logger.warning(f"⚠️ Failed to record event execution in Redis: {redis_error}")
+            
+            # フォールバック: メモリベース実行履歴
+            if not hasattr(self, '_executed_events'):
+                self._executed_events = {}
+            
+            self._executed_events[event_key] = {
+                'event_action': event.action,
+                'executed_at': execution_time,
+                'phase': event.phase.value
+            }
+            
+            logger.debug(f"📝 Event execution recorded in memory: {event.action}")
+            
+        except Exception as e:
+            logger.error(f"❌ Failed to mark event as executed: {event.action} - {e}")
+    
     def get_current_status(self) -> Dict:
         """現在のワークフロー状態を取得"""
+        executed_today = []
+        
+        # 今日実行済みのイベントを取得
+        try:
+            today_key = datetime.now().strftime('%Y-%m-%d')
+            
+            for event in self.workflow_schedule:
+                event_key = f"workflow_executed_{today_key}_{event.action}"
+                
+                # Redis確認
+                executed = False
+                if self.memory_system and hasattr(self.memory_system, 'redis_client'):
+                    try:
+                        executed_data = self.memory_system.redis_client.get(event_key)
+                        if executed_data:
+                            executed = True
+                    except:
+                        pass
+                
+                # メモリ確認（フォールバック）
+                if not executed and hasattr(self, '_executed_events'):
+                    executed = event_key in self._executed_events
+                
+                if executed:
+                    executed_today.append({
+                        "time": event.time.strftime("%H:%M"),
+                        "action": event.action,
+                        "phase": event.phase.value
+                    })
+        except Exception as e:
+            logger.error(f"❌ Failed to get executed events: {e}")
+        
         return {
             "current_phase": self.current_phase.value,
             "is_running": self.is_running,
             "user_override_active": self.user_override_active,
+            "executed_today": executed_today,
             "next_events": [
                 {
                     "time": event.time.strftime("%H:%M"),
