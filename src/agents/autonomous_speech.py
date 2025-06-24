@@ -317,6 +317,8 @@ class AutonomousSpeechSystem:
             return self._get_channel_id_by_name("lounge")
         elif phase.value == "standby":
             logger.info("🔍 STANDBY phase -> no autonomous speech")
+        elif phase.value == "processing":
+            logger.info("🔍 PROCESSING phase -> no autonomous speech (morning workflow in progress)")
         else:
             logger.info(f"🔍 Unknown phase value: {phase} ({phase.value})")
         

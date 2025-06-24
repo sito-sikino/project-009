@@ -163,7 +163,7 @@ class SystemContainer:
         # Daily Workflow System (depends on settings, memory_system, priority_queue, long_term_memory_processor)
         self._components['daily_workflow'] = ComponentDefinition(
             factory=self._create_daily_workflow,
-            dependencies=['settings', 'memory_system', 'priority_queue', 'long_term_memory_processor'],
+            dependencies=['settings', 'memory_system', 'priority_queue', 'long_term_memory_processor', 'event_driven_workflow_orchestrator'],
             singleton=True
         )
         
@@ -371,12 +371,14 @@ class SystemContainer:
         memory_system = dependencies['memory_system']
         priority_queue = dependencies['priority_queue']
         long_term_memory_processor = dependencies['long_term_memory_processor']
+        event_driven_workflow_orchestrator = dependencies['event_driven_workflow_orchestrator']
         
         return DailyWorkflowSystem(
             channel_ids=settings.discord.channel_ids,
             memory_system=memory_system,
             priority_queue=priority_queue,
-            long_term_memory_processor=long_term_memory_processor
+            long_term_memory_processor=long_term_memory_processor,
+            event_driven_workflow_orchestrator=event_driven_workflow_orchestrator
         )
     
     def _create_autonomous_speech(self, dependencies: Dict[str, Any] = None):

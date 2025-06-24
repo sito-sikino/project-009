@@ -39,11 +39,12 @@ class WorkflowEvent:
 class DailyWorkflowSystem:
     """Daily Workflow System - 時間ベース自動管理"""
     
-    def __init__(self, channel_ids: Dict[str, int], memory_system=None, priority_queue=None, long_term_memory_processor=None):
+    def __init__(self, channel_ids: Dict[str, int], memory_system=None, priority_queue=None, long_term_memory_processor=None, event_driven_workflow_orchestrator=None):
         self.channel_ids = channel_ids
         self.memory_system = memory_system
         self.priority_queue = priority_queue
         self.long_term_memory_processor = long_term_memory_processor
+        self.event_driven_workflow_orchestrator = event_driven_workflow_orchestrator
         self.current_phase = WorkflowPhase.STANDBY
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
@@ -196,10 +197,22 @@ class DailyWorkflowSystem:
             await self._send_workflow_message(event.message, event.channel, event.agent, 1)
             
             # 2. 長期記憶処理実行（EventDrivenWorkflowOrchestrator使用）
-            if self.long_term_memory_processor:
-                # ここで実際の統合ワークフローを実行
-                # EventDrivenWorkflowOrchestratorが存在する場合
-                logger.info("✅ 統合朝次ワークフロー: 長期記憶処理とメッセージ送信は外部統合システムが実行")
+            if self.event_driven_workflow_orchestrator:
+                # EventDrivenWorkflowOrchestratorによる統合ワークフロー実行
+                logger.info("🔄 EventDrivenWorkflowOrchestrator による統合朝次ワークフロー実行開始")
+                try:
+                    await self.event_driven_workflow_orchestrator.execute_morning_workflow()
+                    logger.info("✅ 統合朝次ワークフロー完了")
+                    
+                    # ワークフロー完了後、ACTIVEフェーズへ移行
+                    self.current_phase = WorkflowPhase.ACTIVE
+                    logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE")
+                    
+                except Exception as e:
+                    logger.error(f"❌ 統合朝次ワークフロー実行エラー: {e}")
+                    # エラー時もACTIVEフェーズへ移行（システムを継続動作させるため）
+                    self.current_phase = WorkflowPhase.ACTIVE
+                    logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (with error)")
             else:
                 # フォールバック: 長期記憶処理システムが利用できない場合
                 # 日報データなしで基本的な会議開始メッセージのみ送信
@@ -215,6 +228,9 @@ class DailyWorkflowSystem:
                 )
                 await self._send_workflow_message(meeting_message, "command_center", "spectra", 1)
                 logger.info("✅ フォールバック: 基本会議開始メッセージ送信完了")
+                # フォールバック処理後もACTIVEフェーズへ移行
+                self.current_phase = WorkflowPhase.ACTIVE
+                logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (fallback)")
             
         except Exception as e:
             logger.error(f"❌ 統合朝次ワークフローエラー: {e}")
