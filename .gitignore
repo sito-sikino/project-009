@@ -57,7 +57,6 @@ bot_data/
 temp/
 
 # v0.2.2 Clean Architecture - Context pollution prevention
-archive/
 backup/
 *_backup.*
 *_old.*

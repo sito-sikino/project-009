@@ -333,7 +333,7 @@ class PerformanceMonitor:
             "hot_memory_ms": int(os.getenv('HOT_MEMORY_TARGET_MS', 100)),
             "cold_memory_ms": int(os.getenv('COLD_MEMORY_TARGET_MS', 3000)),
             "embedding_ms": int(os.getenv('EMBEDDING_TARGET_MS', 2000)),
-            "error_rate": float(os.getenv('ERROR_RATE_THRESHOLD', 0.05))
+            "error_rate": float(os.getenv('ERROR_RATE_THRESHOLD', '0.05').split('#')[0].strip())
         }
         
         self.logger = logging.getLogger(__name__)

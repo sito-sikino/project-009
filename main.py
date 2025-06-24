@@ -6,13 +6,17 @@ Discord Multi-Agent System - Clean Architecture Entry Point
 
 import asyncio
 import sys
+import os
 
 # Load environment variables early (with fallback)
 try:
     from dotenv import load_dotenv
-    load_dotenv()
+    # Override system environment variables with .env file values
+    load_dotenv(override=True)
+    print(f"✅ Environment loaded from .env: {os.getenv('ENVIRONMENT', 'not_set')}")
 except ImportError:
     # Fallback: dotenv not available, use system environment variables
+    print("⚠️ dotenv not available, using system environment variables")
     pass
 
 # Clean Architecture imports

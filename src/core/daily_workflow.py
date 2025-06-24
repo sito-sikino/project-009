@@ -54,12 +54,13 @@ class DailyWorkflowSystem:
         # ワークフロー スケジュール定義
         self.workflow_schedule = [
             WorkflowEvent(
-                time=time(6, 0),
+                time=time(15, 26),
                 phase=WorkflowPhase.PROCESSING,
                 action="long_term_memory_processing",
-                message="🧠 **長期記憶化処理開始**\n\n" +
+                message="🧠 **[TEST] 長期記憶化処理開始**\n\n" +
                        "今日の記憶を統合分析中です...\n" +
-                       "処理完了次第、日報と会議開始をお知らせします。",
+                       "処理完了次第、日報と会議開始をお知らせします。\n\n" +
+                       "⚠️ **これはテスト実行です**",
                 channel="command_center",
                 agent="system"
             ),
@@ -235,15 +236,21 @@ class DailyWorkflowSystem:
                     await self.event_driven_workflow_orchestrator.execute_morning_workflow()
                     logger.info("✅ 統合朝次ワークフロー完了")
                     
-                    # ワークフロー完了後、ACTIVEフェーズへ移行
+                    # ワークフロー完了後、即座にACTIVEフェーズへ移行
                     self.current_phase = WorkflowPhase.ACTIVE
                     logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE")
+                    logger.info(f"🎯 Current phase confirmed: {self.current_phase.value}")
+                    
+                    # 自発発言システムに即座反映されるよう短時間待機
+                    await asyncio.sleep(1)
+                    logger.info("✅ Phase transition complete, autonomous speech now enabled")
                     
                 except Exception as e:
                     logger.error(f"❌ 統合朝次ワークフロー実行エラー: {e}")
                     # エラー時もACTIVEフェーズへ移行（システムを継続動作させるため）
                     self.current_phase = WorkflowPhase.ACTIVE
                     logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (with error)")
+                    logger.info(f"🎯 Current phase confirmed: {self.current_phase.value}")
             else:
                 # フォールバック: 長期記憶処理システムが利用できない場合
                 # 日報データなしで基本的な会議開始メッセージのみ送信

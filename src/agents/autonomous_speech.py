@@ -25,6 +25,7 @@ except ImportError:
     # Fallback for standalone execution
     class WorkflowPhase(Enum):
         STANDBY = "standby"
+        PROCESSING = "processing"  # 長期記憶化・日報生成処理中
         ACTIVE = "active"
         FREE = "free"
 
@@ -238,7 +239,8 @@ class AutonomousSpeechSystem:
             
             # フェーズ別の発言可否チェック
             logger.info(f"🔍 Current phase: {current_phase}")
-            if current_phase == WorkflowPhase.STANDBY:
+            if current_phase.value == "standby":
+                # TEST環境でも本番と同じようにSTANDBY期間は完全にスキップ
                 logger.info("🚫 STANDBY期間中のため自発発言をスキップ")
                 return
                 
@@ -277,9 +279,22 @@ class AutonomousSpeechSystem:
             logger.error(f"❌ LLM統合自発発言実行失敗: {e}")
             
     def _get_current_phase(self) -> WorkflowPhase:
-        """現在のワークフローフェーズを取得"""
+        """現在のワークフローフェーズを取得（同期問題修正版）"""
         if self.workflow_system:
-            return self.workflow_system.current_phase
+            # ワークフローシステムのフェーズを取得
+            workflow_phase = self.workflow_system.current_phase
+            
+            # PROCESSING phase check: ワークフロー完了後は強制的にACTIVEに
+            if workflow_phase.value == "processing":
+                # 時刻ベースでフェーズ妥当性をチェック
+                hour = datetime.now().hour
+                if 7 <= hour < 20:
+                    # 朝のワークフロー完了後はACTIVEに強制更新
+                    logger.debug(f"🔄 Force phase transition: PROCESSING -> ACTIVE (time-based correction)")
+                    return WorkflowPhase.ACTIVE
+            
+            logger.debug(f"🔍 Workflow phase: {workflow_phase.value}")
+            return workflow_phase
         
         # Fallback: 時刻ベース判定
         hour = datetime.now().hour
@@ -310,12 +325,19 @@ class AutonomousSpeechSystem:
         # フェーズ別デフォルトチャンネル（文字列値比較で確実性確保）
         logger.info(f"🔍 Phase-based channel selection: {phase} (value: {phase.value})")
         if phase.value == "active":
-            logger.info("🔍 ACTIVE phase -> command_center")
-            return self._get_channel_id_by_name("command_center")
+            logger.info("🔍 ACTIVE phase -> command_center (meeting/work mode)")
+            channel_id = self._get_channel_id_by_name("command_center")
+            if channel_id:
+                logger.info(f"✅ ACTIVE phase channel confirmed: command_center ({channel_id})")
+            return channel_id
         elif phase.value == "free":
-            logger.info("🔍 FREE phase -> lounge")
-            return self._get_channel_id_by_name("lounge")
+            logger.info("🔍 FREE phase -> lounge (social mode)")
+            channel_id = self._get_channel_id_by_name("lounge")
+            if channel_id:
+                logger.info(f"✅ FREE phase channel confirmed: lounge ({channel_id})")
+            return channel_id
         elif phase.value == "standby":
+            # STANDBY期間は本番・TEST環境問わず自発発言なし
             logger.info("🔍 STANDBY phase -> no autonomous speech")
         elif phase.value == "processing":
             logger.info("🔍 PROCESSING phase -> no autonomous speech (morning workflow in progress)")
@@ -324,6 +346,14 @@ class AutonomousSpeechSystem:
         
         logger.info("🔍 No channel found, returning None")
         return None
+    
+    def _get_channel_name_from_id(self, channel_id: str) -> str:
+        """チャンネルIDからチャンネル名を逆引き"""
+        for name, ch_id in self.channel_ids.items():
+            if str(ch_id) == str(channel_id):
+                return name
+        # フォールバック
+        return "unknown"
     
     def _get_channel_id_by_name(self, channel_name: str) -> Optional[str]:
         """チャンネル名からチャンネルIDを取得（フォールバック機能付き）"""
@@ -417,13 +447,16 @@ class AutonomousSpeechSystem:
     
     def _create_autonomous_speech_context(self, channel: str, phase: WorkflowPhase, work_mode: bool, active_tasks: str) -> Dict[str, Any]:
         """自発発言用コンテキスト生成"""
+        # チャンネルIDから適切なチャンネル名を取得
+        channel_name = self._get_channel_name_from_id(channel)
+        
         # 自発発言用の特別なメッセージ作成
         if work_mode:
-            context_message = f"チャンネル#{channel}で、現在のタスク「{active_tasks}」に関連して、自発的に有益な発言をしたい。"
+            context_message = f"{channel_name}チャンネルで、現在のタスク「{active_tasks}」に関連して、自発的に有益な発言をしたい。"
         elif phase.value == "active":
-            context_message = f"チャンネル#{channel}で、会議や議論を促進するために自発的に発言したい。"
+            context_message = f"{channel_name}チャンネルで、会議や議論を促進するために自発的に発言したい。"
         else:
-            context_message = f"チャンネル#{channel}で、チームとのコミュニケーションのために自発的に発言したい。"
+            context_message = f"{channel_name}チャンネルで、チームとのコミュニケーションのために自発的に発言したい。"
         
         return {
             'message': context_message,
@@ -455,7 +488,7 @@ class AutonomousSpeechSystem:
         
         if work_mode:
             message = self.personality_generator.get_work_mode_message(selected_agent)
-        elif phase == WorkflowPhase.ACTIVE:
+        elif phase.value == "active":
             message = self.personality_generator.get_meeting_message(selected_agent)
         else:
             message = self.personality_generator.get_random_message(selected_agent)
