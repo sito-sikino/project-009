@@ -142,7 +142,7 @@ class AgentPersonalityGenerator:
 class AutonomousSpeechSystem:
     """LLM統合型自発発言システム - シンプル化版"""
     
-    def __init__(self, channel_ids: Dict[str, int], environment: str = "production", workflow_system=None, priority_queue=None, gemini_client=None):
+    def __init__(self, channel_ids: Dict[str, int], environment: str = "production", workflow_system=None, priority_queue=None, gemini_client=None, system_settings=None):
         self.channel_ids = channel_ids
         self.environment = Environment(environment.lower())
         self.workflow_system = workflow_system
@@ -151,9 +151,14 @@ class AutonomousSpeechSystem:
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
         
-        # 環境別設定（testでもリアルトークン/API使用）
-        self.speech_probability = self._get_speech_probability()
-        self.tick_interval = self._get_tick_interval()
+        # 環境別設定（SystemSettingsから取得）
+        if system_settings:
+            self.speech_probability = 1.0 if system_settings.is_test else 0.33
+            self.tick_interval = system_settings.autonomous_speech_interval
+        else:
+            # フォールバック用（削除予定）
+            self.speech_probability = 1.0 if self.environment == Environment.TEST else 0.33
+            self.tick_interval = 10 if self.environment == Environment.TEST else 300
         
         # 前回発言情報（LLMに渡す文脈として使用）
         self.last_speech_info = {
@@ -171,19 +176,6 @@ class AutonomousSpeechSystem:
         if workflow_system:
             logger.info("🔗 Workflow integration enabled")
         
-    def _get_speech_probability(self) -> float:
-        """環境別発言確率設定（testでもリアルトークン/API使用）"""
-        if self.environment == Environment.TEST:
-            return 1.0  # test: 100%確率（開発・検証用）
-        else:
-            return 0.33  # production: 33%確率（本番運用）
-    
-    def _get_tick_interval(self) -> int:
-        """環境別チェック間隔設定（testでもリアルトークン/API使用）"""
-        if self.environment == Environment.TEST:
-            return 10   # test: 10秒間隔（開発・検証用）
-        else:
-            return 300  # production: 300秒間隔（5分、本番運用）
         
     async def start(self):
         """自発発言システム開始"""
@@ -356,21 +348,13 @@ class AutonomousSpeechSystem:
         return "unknown"
     
     def _get_channel_id_by_name(self, channel_name: str) -> Optional[str]:
-        """チャンネル名からチャンネルIDを取得（フォールバック機能付き）"""
+        """チャンネル名からチャンネルIDを取得"""
         logger.info(f"🔍 All available channel_ids: {self.channel_ids}")
         
         channel_id = self.channel_ids.get(channel_name)
         if channel_id and channel_id > 0:
             logger.info(f"✅ Channel mapping: {channel_name} -> {channel_id}")
             return str(channel_id)
-        
-        # フォールバック: loungeが無い場合はcommand_centerを使用
-        if channel_name == "lounge":
-            logger.warning(f"⚠️ 'lounge' channel not found, falling back to 'command_center'")
-            fallback_id = self.channel_ids.get("command_center")
-            if fallback_id and fallback_id > 0:
-                logger.info(f"✅ Fallback mapping: lounge -> command_center ({fallback_id})")
-                return str(fallback_id)
         
         logger.error(f"❌ Channel ID not found for '{channel_name}': {self.channel_ids}")
         return None

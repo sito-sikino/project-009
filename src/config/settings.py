@@ -46,13 +46,13 @@ class DiscordSettings:
             spectra_token=cls._get_required_env('DISCORD_SPECTRA_TOKEN'),
             lynq_token=cls._get_required_env('DISCORD_LYNQ_TOKEN'),
             paz_token=cls._get_required_env('DISCORD_PAZ_TOKEN'),
-            spectra_bot_id=int(os.getenv('DISCORD_SPECTRA_BOT_ID', '0')),
-            lynq_bot_id=int(os.getenv('DISCORD_LYNQ_BOT_ID', '0')),
-            paz_bot_id=int(os.getenv('DISCORD_PAZ_BOT_ID', '0')),
-            command_center_id=int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '0')),
-            lounge_id=int(os.getenv('LOUNGE_CHANNEL_ID', '0')),
-            development_id=int(os.getenv('DEVELOPMENT_CHANNEL_ID', '0')),
-            creation_id=int(os.getenv('CREATION_CHANNEL_ID', '0'))
+            spectra_bot_id=int(os.getenv('DISCORD_SPECTRA_BOT_ID')),
+            lynq_bot_id=int(os.getenv('DISCORD_LYNQ_BOT_ID')),
+            paz_bot_id=int(os.getenv('DISCORD_PAZ_BOT_ID')),
+            command_center_id=int(os.getenv('COMMAND_CENTER_CHANNEL_ID')),
+            lounge_id=int(os.getenv('LOUNGE_CHANNEL_ID')),
+            development_id=int(os.getenv('DEVELOPMENT_CHANNEL_ID')),
+            creation_id=int(os.getenv('CREATION_CHANNEL_ID'))
         )
     
     @staticmethod
@@ -122,9 +122,9 @@ class AISettings:
         """環境変数からAI設定を生成"""
         return cls(
             gemini_api_key=cls._get_required_env('GEMINI_API_KEY'),
-            gemini_model=os.getenv('GEMINI_MODEL', 'gemini-2.0-flash-exp'),
-            embedding_model=os.getenv('EMBEDDING_MODEL', 'text-embedding-004'),
-            embedding_batch_size=int(os.getenv('EMBEDDING_BATCH_SIZE', '100'))
+            gemini_model=os.getenv('GEMINI_MODEL'),
+            embedding_model=os.getenv('EMBEDDING_MODEL'),
+            embedding_batch_size=int(os.getenv('EMBEDDING_BATCH_SIZE'))
         )
     
     @staticmethod
@@ -161,12 +161,12 @@ class DatabaseSettings:
     def from_env(cls) -> 'DatabaseSettings':
         """環境変数からDB設定を生成"""
         return cls(
-            redis_url=os.getenv('REDIS_URL', 'redis://localhost:6379'),
-            redis_db=int(os.getenv('REDIS_DB', '0')),
+            redis_url=os.getenv('REDIS_URL'),
+            redis_db=int(os.getenv('REDIS_DB')),
             redis_password=os.getenv('REDIS_PASSWORD'),
-            postgresql_url=os.getenv('POSTGRESQL_URL', 'postgresql://user:pass@localhost:5432/discord_agents'),
-            postgresql_pool_size=int(os.getenv('POSTGRESQL_POOL_SIZE', '20')),
-            postgresql_max_overflow=int(os.getenv('POSTGRESQL_MAX_OVERFLOW', '30'))
+            postgresql_url=os.getenv('POSTGRESQL_URL'),
+            postgresql_pool_size=int(os.getenv('POSTGRESQL_POOL_SIZE')),
+            postgresql_max_overflow=int(os.getenv('POSTGRESQL_MAX_OVERFLOW'))
         )
 
 
@@ -200,23 +200,20 @@ class SystemSettings:
     @classmethod
     def from_env(cls) -> 'SystemSettings':
         """環境変数からシステム設定を生成"""
-        env_str = os.getenv('ENVIRONMENT', 'production').lower()
-        try:
-            environment = Environment(env_str)
-        except ValueError:
-            environment = Environment.PRODUCTION
+        env_str = os.getenv('ENVIRONMENT').lower()
+        environment = Environment(env_str)
         
         return cls(
             environment=environment,
-            debug=os.getenv('DEBUG', 'false').lower() == 'true',
-            log_level=os.getenv('LOG_LEVEL', 'INFO').upper(),
-            log_file=os.getenv('LOG_FILE', 'logs/discord_agent.log'),
-            health_check_port=int(os.getenv('HEALTH_CHECK_PORT', '8000')),
-            health_check_host=os.getenv('HEALTH_CHECK_HOST', '0.0.0.0'),
-            max_concurrent_users=int(os.getenv('MAX_CONCURRENT_USERS', '50')),
-            message_queue_size=int(os.getenv('MESSAGE_QUEUE_SIZE', '1000')),
-            autonomous_speech_test_interval=int(os.getenv('AUTONOMOUS_SPEECH_TEST_INTERVAL', '10')),
-            autonomous_speech_prod_interval=int(os.getenv('AUTONOMOUS_SPEECH_PROD_INTERVAL', '300'))
+            debug=os.getenv('DEBUG').lower() == 'true',
+            log_level=os.getenv('LOG_LEVEL').upper(),
+            log_file=os.getenv('LOG_FILE'),
+            health_check_port=int(os.getenv('HEALTH_CHECK_PORT')),
+            health_check_host=os.getenv('HEALTH_CHECK_HOST'),
+            max_concurrent_users=int(os.getenv('MAX_CONCURRENT_USERS')),
+            message_queue_size=int(os.getenv('MESSAGE_QUEUE_SIZE')),
+            autonomous_speech_test_interval=int(os.getenv('AUTONOMOUS_SPEECH_TEST_INTERVAL')),
+            autonomous_speech_prod_interval=int(os.getenv('AUTONOMOUS_SPEECH_PROD_INTERVAL'))
         )
     
     @property

@@ -14,19 +14,13 @@ from ..config.settings import get_settings
 from ..utils.logger import get_logger, log_performance, log_component_status
 from ..container.system_container import SystemContainer
 
-# Import performance monitoring (with fallback)
-try:
-    from ..utils.monitoring import performance_monitor
-    MONITORING_AVAILABLE = True
-except ImportError:
-    MONITORING_AVAILABLE = False
+# Import performance monitoring
+from ..utils.monitoring import performance_monitor
+MONITORING_AVAILABLE = True
     
-# Import health monitoring (with fallback)
-try:
-    from ..utils.health import setup_health_monitoring
-    HEALTH_AVAILABLE = True
-except ImportError:
-    HEALTH_AVAILABLE = False
+# Import health monitoring
+from ..utils.health import setup_health_monitoring
+HEALTH_AVAILABLE = True
 
 
 class DiscordAppService:

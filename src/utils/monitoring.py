@@ -14,13 +14,8 @@ from enum import Enum
 import json
 from pathlib import Path
 
-try:
-    from prometheus_client import Counter, Histogram, Gauge, Summary, CollectorRegistry, generate_latest
-    PROMETHEUS_AVAILABLE = True
-except ImportError:
-    PROMETHEUS_AVAILABLE = False
-    # Define dummy classes for type hints when prometheus_client is not available
-    Counter = Histogram = Gauge = Summary = CollectorRegistry = generate_latest = None
+from prometheus_client import Counter, Histogram, Gauge, Summary, CollectorRegistry, generate_latest
+PROMETHEUS_AVAILABLE = True
 
 
 class CircuitBreakerState(Enum):
@@ -330,10 +325,10 @@ class PerformanceMonitor:
         
         # パフォーマンス閾値
         self.thresholds = {
-            "hot_memory_ms": int(os.getenv('HOT_MEMORY_TARGET_MS', 100)),
-            "cold_memory_ms": int(os.getenv('COLD_MEMORY_TARGET_MS', 3000)),
-            "embedding_ms": int(os.getenv('EMBEDDING_TARGET_MS', 2000)),
-            "error_rate": float(os.getenv('ERROR_RATE_THRESHOLD', '0.05').split('#')[0].strip())
+            "hot_memory_ms": int(os.getenv('HOT_MEMORY_TARGET_MS')),
+            "cold_memory_ms": int(os.getenv('COLD_MEMORY_TARGET_MS')),
+            "embedding_ms": int(os.getenv('EMBEDDING_TARGET_MS')),
+            "error_rate": float(os.getenv('ERROR_RATE_THRESHOLD'))
         }
         
         self.logger = logging.getLogger(__name__)

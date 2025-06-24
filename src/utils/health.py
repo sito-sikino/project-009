@@ -16,17 +16,6 @@ import logging
 from .monitoring import performance_monitor
 
 
-def _parse_int_env(env_var: str, default: int) -> int:
-    """環境変数を int に解析（コメント対応）"""
-    value = os.getenv(env_var, str(default))
-    if isinstance(value, str):
-        # コメント部分を除去
-        value = value.split('#')[0].strip()
-    try:
-        return int(value)
-    except (ValueError, TypeError):
-        logging.getLogger(__name__).warning(f"Invalid {env_var} value: {value}, using default: {default}")
-        return default
 
 
 class HealthCheckHandler(BaseHTTPRequestHandler):
@@ -369,8 +358,8 @@ async def setup_health_monitoring(memory_system, discord_clients, port: int = 80
     # Circuit Breaker 設定
     performance_monitor.create_circuit_breaker(
         "memory_operations",
-        failure_threshold=_parse_int_env('CIRCUIT_BREAKER_FAILURE_THRESHOLD', 5),
-        recovery_timeout=_parse_int_env('CIRCUIT_BREAKER_RECOVERY_TIMEOUT', 60)
+        failure_threshold=int(os.getenv('CIRCUIT_BREAKER_FAILURE_THRESHOLD', '5')),
+        recovery_timeout=int(os.getenv('CIRCUIT_BREAKER_RECOVERY_TIMEOUT', '60'))
     )
     
     performance_monitor.create_circuit_breaker(

@@ -30,7 +30,7 @@ class GoogleEmbeddingClient:
             api_key: Gemini API Key
             task_type: embedding用途 ("RETRIEVAL_DOCUMENT", "SEMANTIC_SIMILARITY", etc.)
         """
-        self.api_key = api_key or os.getenv('GEMINI_API_KEY')
+        self.api_key = api_key if api_key else os.getenv('GEMINI_API_KEY')
         self.task_type = task_type
         
         if not self.api_key:
