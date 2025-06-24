@@ -147,33 +147,29 @@ class MinHashDeduplicator:
         Returns:
             True: 新規追加, False: 重複検出により追加されず
         """
-        try:
-            # MinHash生成
-            minhash = self._create_minhash(memory_item.content)
-            
-            # 重複チェック
-            duplicates = self.lsh.query(minhash)
-            
-            if duplicates:
-                # 重複検出
-                duplicate_ids = list(duplicates)
-                self.logger.info(
-                    f"重複検出: 新規アイテム '{memory_item.id}' は "
-                    f"既存アイテム {duplicate_ids} と重複"
-                )
-                return False
-            
-            # 新規追加
-            self.lsh.insert(memory_item.id, minhash)
-            self.memory_items[memory_item.id] = memory_item
-            self.minhashes[memory_item.id] = minhash
-            
-            self.logger.debug(f"新規記憶追加: {memory_item.id}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"記憶追加エラー: {e}")
+        # MinHash生成
+        minhash = self._create_minhash(memory_item.content)
+        
+        # 重複チェック
+        duplicates = self.lsh.query(minhash)
+        
+        if duplicates:
+            # 重複検出
+            duplicate_ids = list(duplicates)
+            self.logger.info(
+                f"重複検出: 新規アイテム '{memory_item.id}' は "
+                f"既存アイテム {duplicate_ids} と重複"
+            )
             return False
+        
+        # 新規追加
+        self.lsh.insert(memory_item.id, minhash)
+        self.memory_items[memory_item.id] = memory_item
+        self.minhashes[memory_item.id] = minhash
+        
+        self.logger.debug(f"新規記憶追加: {memory_item.id}")
+        return True
+            
     
     def find_duplicates(self, content: str) -> List[str]:
         """指定コンテンツの重複アイテムID一覧取得"""

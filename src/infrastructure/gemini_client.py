@@ -81,13 +81,8 @@ class GeminiClient:
             return response
             
         except Exception as e:
-            # エラー時のフォールバック
-            return {
-                'selected_agent': 'spectra',
-                'response_content': f'申し訳ありません。処理中にエラーが発生しました。',
-                'confidence': 0.5,
-                'reasoning': f'エラーのためSpectraにフォールバック: {str(e)}'
-            }
+            # エラー時は例外を再発生
+            raise RuntimeError(f"LLM unified agent selection failed: {str(e)}") from e
     
     def _generate_unified_prompt(self, context: Dict[str, Any]) -> str:
         """
@@ -207,13 +202,8 @@ JSON以外は出力しないでください。"""
             return result
             
         except (json.JSONDecodeError, ValueError) as e:
-            # JSON解析失敗時のフォールバック
-            return {
-                'selected_agent': 'spectra',
-                'response_content': response.content,
-                'confidence': 0.7,
-                'reasoning': f'JSON解析失敗のためSpectraフォールバック: {str(e)}'
-            }
+            # JSON解析失敗時は例外を再発生
+            raise ValueError(f"LLM response JSON parsing failed: {str(e)}") from e
     
     async def _handle_rate_limit(self):
         """レート制限対応（15RPM制限）"""

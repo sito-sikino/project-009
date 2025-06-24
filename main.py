@@ -25,42 +25,34 @@ async def main():
     """Clean Architecture main entry point"""
     logger = None
     
-    try:
-        # Phase 1: Environment & Logging Setup
-        check_required_env_vars()
-        setup_logging()
-        logger = get_logger(__name__)
-        log_system_startup()
-        logger.info("🚀 Starting Discord Multi-Agent System v0.2.2")
-        logger.info("🏗️ Architecture: Clean Architecture + 統合受信・個別送信型")
-        
-        # Phase 2: Dependency Injection Container
-        logger.info("🔧 Initializing System Container...")
-        container = create_system_container()
-        await container.initialize()
-        logger.info("✅ System Container initialized with dependency injection")
-        
-        # Phase 3: Application Service
-        logger.info("🎯 Creating Application Service...")
-        app_service = create_discord_app_service(container)
-        logger.info("✅ Discord Application Service created")
-        
-        # Phase 4: System Lifecycle Management
-        logger.info("🔄 Setting up System Lifecycle Manager...")
-        lifecycle = create_system_lifecycle(app_service, logger)
-        lifecycle.setup_signal_handlers()
-        logger.info("✅ System Lifecycle Manager ready")
-        
-        # Phase 5: Run Application
-        logger.info("▶️ Starting main application loop...")
-        await lifecycle.run()
-            
-    except Exception as e:
-        if logger:
-            logger.error(f"❌ Failed to start system: {e}")
-        else:
-            print(f"❌ Failed to start system: {e}")
-        sys.exit(1)
+    # Phase 1: Environment & Logging Setup
+    check_required_env_vars()
+    setup_logging()
+    logger = get_logger(__name__)
+    log_system_startup()
+    logger.info("🚀 Starting Discord Multi-Agent System v0.2.2")
+    logger.info("🏗️ Architecture: Clean Architecture + 統合受信・個別送信型")
+    
+    # Phase 2: Dependency Injection Container
+    logger.info("🔧 Initializing System Container...")
+    container = create_system_container()
+    await container.initialize()
+    logger.info("✅ System Container initialized with dependency injection")
+    
+    # Phase 3: Application Service
+    logger.info("🎯 Creating Application Service...")
+    app_service = create_discord_app_service(container)
+    logger.info("✅ Discord Application Service created")
+    
+    # Phase 4: System Lifecycle Management
+    logger.info("🔄 Setting up System Lifecycle Manager...")
+    lifecycle = create_system_lifecycle(app_service, logger)
+    lifecycle.setup_signal_handlers()
+    logger.info("✅ System Lifecycle Manager ready")
+    
+    # Phase 5: Run Application
+    logger.info("▶️ Starting main application loop...")
+    await lifecycle.run()
 
 
 if __name__ == "__main__":

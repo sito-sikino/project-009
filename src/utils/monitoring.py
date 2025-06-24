@@ -103,10 +103,7 @@ class PrometheusMetrics:
     
     def __init__(self, registry: Optional[CollectorRegistry] = None):
         if not PROMETHEUS_AVAILABLE:
-            self.registry = None
-            self.logger = logging.getLogger(__name__)
-            self.logger.warning("Prometheus client not available - metrics disabled")
-            return
+            raise RuntimeError("Prometheus client is required but not available")
         
         self.registry = registry or CollectorRegistry()
         

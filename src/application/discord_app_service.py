@@ -185,31 +185,23 @@ class DiscordAppService:
         connected_clients = []
         
         for name, client, token in connection_order:
-            try:
-                self.logger.info(f"🔌 Connecting {name}...")
-                
-                # Create background task for client connection
-                connection_task = asyncio.create_task(client.start(token))
-                
-                # Allow brief initialization time
-                await asyncio.sleep(2)
-                
-                # Check connection progress
-                if not connection_task.done():
-                    self.logger.info(f"✅ {name} connection initiated successfully")
-                    connected_clients.append((name, client, connection_task))
-                else:
-                    # Connection completed immediately or failed
-                    try:
-                        await connection_task
-                        self.logger.info(f"✅ {name} connected successfully")
-                        connected_clients.append((name, client, connection_task))
-                    except Exception as e:
-                        self.logger.error(f"❌ {name} connection failed: {e}")
-                        
-            except Exception as e:
-                self.logger.error(f"❌ Failed to start {name}: {e}")
-                continue
+            self.logger.info(f"🔌 Connecting {name}...")
+            
+            # Create background task for client connection
+            connection_task = asyncio.create_task(client.start(token))
+            
+            # Allow brief initialization time
+            await asyncio.sleep(2)
+            
+            # Check connection progress
+            if not connection_task.done():
+                self.logger.info(f"✅ {name} connection initiated successfully")
+                connected_clients.append((name, client, connection_task))
+            else:
+                # Connection completed immediately or failed
+                await connection_task
+                self.logger.info(f"✅ {name} connected successfully")
+                connected_clients.append((name, client, connection_task))
         
         self.connected_clients = connected_clients
         log_component_status("discord_clients", "ready", f"{len(connected_clients)}/4 clients")

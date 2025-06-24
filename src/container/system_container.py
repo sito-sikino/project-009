@@ -261,9 +261,8 @@ class SystemContainer:
             
             return instance
             
-        except Exception as e:
-            log_component_status(component_name, "error", str(e))
-            self.logger.error(f"❌ Failed to initialize {component_name}: {e}")
+        except Exception:
+            log_component_status(component_name, "error", "Initialization failed")
             raise
     
     def get(self, component_name: str) -> Any:

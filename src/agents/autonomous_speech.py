@@ -281,9 +281,7 @@ class AutonomousSpeechSystem:
                 # 時刻ベースでフェーズ妥当性をチェック
                 hour = datetime.now().hour
                 if 7 <= hour < 20:
-                    # 朝のワークフロー完了後はACTIVEに強制更新
-                    logger.debug(f"🔄 Force phase transition: PROCESSING -> ACTIVE (time-based correction)")
-                    return WorkflowPhase.ACTIVE
+                    pass
             
             logger.debug(f"🔍 Workflow phase: {workflow_phase.value}")
             return workflow_phase
@@ -385,8 +383,7 @@ class AutonomousSpeechSystem:
         try:
             # GeminiClientがDI経由で注入されているかチェック
             if not self.gemini_client:
-                logger.warning("⚠️ GeminiClient未注入、テンプレートフォールバック使用")
-                return self._fallback_template_generation(channel, phase)
+                raise RuntimeError("GeminiClient is required but not injected via DI")
             
             # アクティブタスクの取得
             active_tasks = self._get_active_tasks_summary()

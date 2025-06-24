@@ -100,20 +100,16 @@ class SystemLifecycle:
     
     def _stop_workflow_systems_immediately(self) -> None:
         """ワークフローシステムの即座停止"""
-        try:
-            # Set stop flags for workflow systems
-            daily_workflow = self.container.get('daily_workflow')
-            if hasattr(daily_workflow, 'is_running'):
-                daily_workflow.is_running = False
-                
-            autonomous_speech = self.container.get('autonomous_speech')
-            if hasattr(autonomous_speech, 'is_running'):
-                autonomous_speech.is_running = False
-                
-            self.logger.debug("🔄 Workflow system stop flags set")
+        # Set stop flags for workflow systems
+        daily_workflow = self.container.get('daily_workflow')
+        if hasattr(daily_workflow, 'is_running'):
+            daily_workflow.is_running = False
             
-        except Exception as e:
-            self.logger.error(f"❌ Error stopping workflow systems immediately: {e}")
+        autonomous_speech = self.container.get('autonomous_speech')
+        if hasattr(autonomous_speech, 'is_running'):
+            autonomous_speech.is_running = False
+            
+        self.logger.debug("🔄 Workflow system stop flags set")
     
     async def run(self) -> None:
         """システム全体の実行・監視"""

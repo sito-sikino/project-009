@@ -153,36 +153,28 @@ class DailyWorkflowSystem:
         
     def _is_event_executed_today(self, event: WorkflowEvent) -> bool:
         """今日既に実行済みかチェック（Redis/メモリベース堅牢実装）"""
-        try:
-            # 今日の日付キー
-            today_key = datetime.now().strftime('%Y-%m-%d')
-            event_key = f"workflow_executed_{today_key}_{event.action}"
-            
-            # Redisから実行履歴を確認
-            if self.memory_system and hasattr(self.memory_system, 'redis_client'):
-                try:
-                    executed = self.memory_system.redis_client.get(event_key)
-                    if executed:
-                        logger.debug(f"⏭️ Event {event.action} already executed today (Redis)")
-                        return True
-                except Exception as redis_error:
-                    logger.warning(f"⚠️ Redis check failed for {event.action}: {redis_error}")
-            
-            # フォールバック: メモリベース実行履歴
-            if not hasattr(self, '_executed_events'):
-                self._executed_events = {}
-            
-            if event_key in self._executed_events:
-                logger.debug(f"⏭️ Event {event.action} already executed today (Memory)")
+        # 今日の日付キー
+        today_key = datetime.now().strftime('%Y-%m-%d')
+        event_key = f"workflow_executed_{today_key}_{event.action}"
+        
+        # Redisから実行履歴を確認
+        if self.memory_system and hasattr(self.memory_system, 'redis_client'):
+            executed = self.memory_system.redis_client.get(event_key)
+            if executed:
+                logger.debug(f"⏭️ Event {event.action} already executed today (Redis)")
                 return True
+        
+        # フォールバック: メモリベース実行履歴
+        if not hasattr(self, '_executed_events'):
+            self._executed_events = {}
+        
+        if event_key in self._executed_events:
+            logger.debug(f"⏭️ Event {event.action} already executed today (Memory)")
+            return True
+        
+        logger.debug(f"✅ Event {event.action} not yet executed today")
+        return False
             
-            logger.debug(f"✅ Event {event.action} not yet executed today")
-            return False
-            
-        except Exception as e:
-            logger.error(f"❌ Event execution check failed for {event.action}: {e}")
-            # エラー時は実行していないものとして扱う（安全側）
-            return False
         
     async def _execute_event(self, event: WorkflowEvent):
         """イベント実行"""
@@ -252,23 +244,8 @@ class DailyWorkflowSystem:
                     logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (with error)")
                     logger.info(f"🎯 Current phase confirmed: {self.current_phase.value}")
             else:
-                # フォールバック: 長期記憶処理システムが利用できない場合
-                # 日報データなしで基本的な会議開始メッセージのみ送信
-                # 注: 正常時は統合メッセージ（日報Embed + 会議宣言）が送信される
-                meeting_message = (
-                    "🏢 **Morning Meeting - Session Started**\n\n"
-                    "📋 **Today's Agenda:**\n"
-                    "• 昨日の進捗レビュー\n"
-                    "• 今日の目標設定\n"
-                    "• リソース配分の確認\n"
-                    "• 課題・ブロッカーの特定\n\n"
-                    "それでは、本日もよろしくお願いします！ 💪"
-                )
-                await self._send_workflow_message(meeting_message, "command_center", "spectra", 1)
-                logger.info("✅ フォールバック: 基本会議開始メッセージ送信完了")
-                # フォールバック処理後もACTIVEフェーズへ移行
-                self.current_phase = WorkflowPhase.ACTIVE
-                logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (fallback)")
+                # EventDrivenWorkflowOrchestratorが利用できない場合はエラー
+                raise RuntimeError("EventDrivenWorkflowOrchestrator is required but not available")
             
         except Exception as e:
             logger.error(f"❌ 統合朝次ワークフローエラー: {e}")

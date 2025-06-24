@@ -119,13 +119,8 @@ class LongTermMemoryProcessor:
             self.logger.info(f"📊 取得記憶数: {len(raw_memories)}件")
             
             if not raw_memories:
-                self.logger.warning("処理対象記憶なし")
-                return [], ProgressDifferential(
-                    date=target_date,
-                    new_entities=[], progressed_entities=[], stagnant_entities=[],
-                    completed_tasks=[], new_skills=[],
-                    overall_summary="処理対象記憶なし"
-                )
+                self.logger.error("処理対象記憶が見つかりません")
+                raise ValueError(f"No processable memories found for date {target_date}")
             
             # 2. API 1: Gemini 2.0 Flash統合分析
             processed_memories = await self._api1_unified_analysis(raw_memories)
