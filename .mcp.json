@@ -1,0 +1,77 @@
+{
+  "mcpServers": {
+    "github": {
+      "command": "uvx",
+      "args": ["mcp-server-github"],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}"
+      }
+    },
+    "context7": {
+      "command": "uvx", 
+      "args": ["mcp-server-context7"],
+      "env": {}
+    },
+    "brave-search": {
+      "command": "uvx",
+      "args": ["mcp-server-brave-search"],
+      "env": {
+        "BRAVE_API_KEY": "${BRAVE_API_KEY}"
+      }
+    },
+    "postgres": {
+      "command": "uvx",
+      "args": ["mcp-server-postgres"],
+      "env": {
+        "DATABASE_URL": "${POSTGRESQL_URL}"
+      }
+    },
+    "redis": {
+      "command": "uvx",
+      "args": ["mcp-server-redis"],
+      "env": {
+        "REDIS_URL": "${REDIS_URL}"
+      }
+    },
+    "puppeteer": {
+      "command": "node",
+      "args": ["/usr/local/lib/node_modules/@anthropic/mcp-server-puppeteer"],
+      "env": {}
+    }
+  },
+  "projectConfiguration": {
+    "description": "Discord Multi-Agent System MCP Configuration",
+    "version": "v0.2.4",
+    "requiredServers": ["context7", "brave-search"],
+    "optionalServers": ["github", "postgres", "redis", "puppeteer"],
+    "usagePolicy": {
+      "informationFreshness": "48h",
+      "mandatoryUsage": {
+        "newFeatures": ["context7", "brave-search"],
+        "errorResolution": ["brave-search"],
+        "libraryUpdates": ["context7"],
+        "securityIssues": ["brave-search"]
+      }
+    }
+  },
+  "integrationSettings": {
+    "context7": {
+      "defaultTokens": 10000,
+      "primaryUseCase": "library documentation and API references",
+      "queryOptimization": true
+    },
+    "brave-search": {
+      "maxResults": 10,
+      "primaryUseCase": "error resolution and best practices research",
+      "freshContentPreference": true
+    },
+    "github": {
+      "primaryUseCase": "issue management and PR automation",
+      "autoCreatePR": true
+    },
+    "postgres": {
+      "primaryUseCase": "database schema management and queries",
+      "readOnly": false
+    }
+  }
+}

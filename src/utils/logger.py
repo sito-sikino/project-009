@@ -253,7 +253,7 @@ def log_system_startup() -> None:
     logger = get_logger("system.startup")
     logger.info("🚀 Discord Multi-Agent System starting...")
     logger.info(f"🌍 Environment: {get_system_settings().environment.value}")
-    logger.info(f"🔧 Clean Architecture v0.2.2")
+    logger.info(f"🔧 Clean Architecture v0.2.4")
 
 
 def log_system_shutdown() -> None:

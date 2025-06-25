@@ -8,6 +8,11 @@ build/
 develop-eggs/
 dist/
 downloads/
+
+# Project-specific cleanup
+.backup_test_files/
+.backup_*/
+cleanup.sh
 eggs/
 .eggs/
 lib/

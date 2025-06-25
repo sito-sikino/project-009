@@ -4,9 +4,12 @@ Output Bots - 個別送信Discord Bot実装
 """
 
 import asyncio
+import logging
 from typing import Dict, Any, Optional
 import discord
 from discord.ext import commands
+
+logger = logging.getLogger(__name__)
 
 
 class OutputBot(discord.Client):
@@ -58,15 +61,15 @@ class OutputBot(discord.Client):
                 content = message_data['content']
                 await channel.send(content)
             else:
-                print(f"Channel {channel_id} not found for {self.bot_name}")
+                logger.error(f"Channel {channel_id} not found for {self.bot_name}")
                 
         except Exception as e:
-            print(f"Failed to send message via {self.bot_name}: {e}")
+            logger.error(f"Failed to send message via {self.bot_name}: {e}")
     
     async def on_ready(self):
         """Bot準備完了イベント"""
-        print(f'{self.bot_name.upper()} Bot ({self.user}) is ready!')
-        print(f'Personality: {self.personality}')
+        logger.info(f'{self.bot_name.upper()} Bot ({self.user}) is ready!')
+        logger.info(f'Personality: {self.personality}')
 
 
 class SpectraBot(OutputBot):

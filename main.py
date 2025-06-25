@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Discord Multi-Agent System - Clean Architecture Entry Point
-統合受信・個別送信型アーキテクチャ v0.2.2
+統合受信・個別送信型アーキテクチャ v0.2.4
 """
 
 import asyncio
@@ -30,7 +30,8 @@ async def main():
     setup_logging()
     logger = get_logger(__name__)
     log_system_startup()
-    logger.info("🚀 Starting Discord Multi-Agent System v0.2.2")
+    logger.info("🚀 Starting Discord Multi-Agent System v0.2.4")
+    logger.info("📊 Status: Fail-fast Architecture & Fallback Optimization Complete")
     logger.info("🏗️ Architecture: Clean Architecture + 統合受信・個別送信型")
     
     # Phase 2: Dependency Injection Container

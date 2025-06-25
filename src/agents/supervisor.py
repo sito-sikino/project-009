@@ -112,41 +112,32 @@ class AgentSupervisor:
         Returns:
             AgentState: メモリ情報が追加された状態
         """
-        memory_context = {}
+        if not self.memory_system:
+            raise RuntimeError("Memory system is required but not available")
         
-        if self.memory_system:
-            try:
-                # Hot Memory読み込み
-                hot_memory = await self.memory_system.load_hot_memory(
-                    channel_id=state['channel_id']
-                )
-                
-                # Cold Memory読み込み
-                if state['messages']:
-                    last_msg = state['messages'][-1]
-                    if isinstance(last_msg, dict):
-                        latest_message = last_msg.get('content', '')
-                    else:
-                        latest_message = getattr(last_msg, 'content', str(last_msg))
-                    
-                    cold_memory = await self.memory_system.load_cold_memory(
-                        query=latest_message
-                    )
-                else:
-                    cold_memory = []
-                
-                memory_context = {
-                    'hot_memory': hot_memory,
-                    'cold_memory': cold_memory
-                }
-                
-            except Exception as e:
-                # メモリ読み込み失敗時のフォールバック
-                memory_context = {
-                    'hot_memory': [],
-                    'cold_memory': [],
-                    'error': str(e)
-                }
+        # Hot Memory読み込み
+        hot_memory = await self.memory_system.load_hot_memory(
+            channel_id=state['channel_id']
+        )
+        
+        # Cold Memory読み込み
+        if state['messages']:
+            last_msg = state['messages'][-1]
+            if isinstance(last_msg, dict):
+                latest_message = last_msg.get('content', '')
+            else:
+                latest_message = getattr(last_msg, 'content', str(last_msg))
+            
+            cold_memory = await self.memory_system.load_cold_memory(
+                query=latest_message
+            )
+        else:
+            cold_memory = []
+        
+        memory_context = {
+            'hot_memory': hot_memory,
+            'cold_memory': cold_memory
+        }
         
         # 状態更新
         updated_state = state.copy()
@@ -164,43 +155,36 @@ class AgentSupervisor:
         Returns:
             AgentState: エージェント選択結果が追加された状態
         """
-        try:
-            # 最新メッセージ取得
-            latest_message = ""
-            if state['messages']:
-                last_msg = state['messages'][-1]
-                if isinstance(last_msg, dict):
-                    latest_message = last_msg.get('content', '')
-                else:
-                    # LangChain Message objectの場合
-                    latest_message = getattr(last_msg, 'content', str(last_msg))
-            
-            # Gemini統合API呼び出し
-            context = {
-                'message': latest_message,
-                'hot_memory': state['memory_context'].get('hot_memory', []),
-                'cold_memory': state['memory_context'].get('cold_memory', []),
-                'channel_id': state['channel_id']
-            }
-            
-            result = await self.gemini_client.unified_agent_selection(context)
-            
-            # 状態更新
-            updated_state = state.copy()
-            updated_state['selected_agent'] = result['selected_agent']
-            updated_state['response_content'] = result['response_content']
-            updated_state['confidence'] = result['confidence']
-            
-            return updated_state
-            
-        except Exception as e:
-            # エラー時のフォールバック
-            updated_state = state.copy()
-            updated_state['selected_agent'] = 'spectra'
-            updated_state['response_content'] = f'処理中にエラーが発生しました: {str(e)}'
-            updated_state['confidence'] = 0.5
-            
-            return updated_state
+        # 最新メッセージ取得
+        latest_message = ""
+        if state['messages']:
+            last_msg = state['messages'][-1]
+            if isinstance(last_msg, dict):
+                latest_message = last_msg.get('content', '')
+            else:
+                # LangChain Message objectの場合
+                latest_message = getattr(last_msg, 'content', str(last_msg))
+        
+        if not self.gemini_client:
+            raise RuntimeError("Gemini client is required but not available")
+        
+        # Gemini統合API呼び出し
+        context = {
+            'message': latest_message,
+            'hot_memory': state['memory_context'].get('hot_memory', []),
+            'cold_memory': state['memory_context'].get('cold_memory', []),
+            'channel_id': state['channel_id']
+        }
+        
+        result = await self.gemini_client.unified_agent_selection(context)
+        
+        # 状態更新
+        updated_state = state.copy()
+        updated_state['selected_agent'] = result['selected_agent']
+        updated_state['response_content'] = result['response_content']
+        updated_state['confidence'] = result['confidence']
+        
+        return updated_state
     
     async def _update_memory_node(self, state: AgentState) -> AgentState:
         """

@@ -4,8 +4,11 @@ LangGraph Supervisor → 個別Output Bot配信システム
 """
 
 import asyncio
+import logging
 from typing import Dict, Any, List, Optional
 from ..bots.output_bots import OutputBot
+
+logger = logging.getLogger(__name__)
 
 
 class MessageRouter:
@@ -15,7 +18,6 @@ class MessageRouter:
     責務:
     - LangGraph出力の解析
     - 適切なOutput Botへの配信
-    - フォールバック処理
     - 並行メッセージ配信管理
     """
     
@@ -29,7 +31,6 @@ class MessageRouter:
         """
         self.bots = bots
         self.valid_agents = set(bots.keys())
-        self.fallback_agent = "spectra"  # デフォルトフォールバック
     
     async def route_message(self, message_data: Dict[str, Any]) -> None:
         """
@@ -43,12 +44,13 @@ class MessageRouter:
                 - confidence: float (信頼度)
                 - original_user: str (元発言者、オプション)
         """
-        selected_agent = message_data.get('selected_agent', self.fallback_agent)
+        selected_agent = message_data.get('selected_agent')
+        if not selected_agent:
+            raise ValueError("selected_agent is required in message_data")
         
         # エージェント有効性チェック
         if not self.is_bot_available(selected_agent):
-            print(f"Warning: Agent '{selected_agent}' not available, falling back to {self.fallback_agent}")
-            selected_agent = self.fallback_agent
+            raise RuntimeError(f"Agent '{selected_agent}' is not available")
         
         # 対象Bot取得
         target_bot = self.bots[selected_agent]
@@ -66,16 +68,11 @@ class MessageRouter:
             # Bot経由でメッセージ送信
             await target_bot.send_message(routing_data)
             
-            print(f"✅ Routed message to {selected_agent.upper()}: {routing_data['content'][:50]}...")
+            logger.info(f"✅ Routed message to {selected_agent.upper()}: {routing_data['content'][:50]}...")
             
         except Exception as e:
-            print(f"❌ Failed to route message to {selected_agent}: {e}")
-            
-            # フォールバック処理
-            if selected_agent != self.fallback_agent:
-                print(f"Retrying with fallback agent: {self.fallback_agent}")
-                routing_data['selected_agent'] = self.fallback_agent
-                await self.bots[self.fallback_agent].send_message(routing_data)
+            logger.error(f"❌ Failed to route message to {selected_agent}: {e}")
+            raise
     
     def is_bot_available(self, agent_name: str) -> bool:
         """
@@ -134,7 +131,6 @@ class MessageRouter:
         return {
             'total_bots': len(self.bots),
             'available_agents': list(self.valid_agents),
-            'fallback_agent': self.fallback_agent,
             'bot_personalities': {
                 name: bot.personality for name, bot in self.bots.items()
             }

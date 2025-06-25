@@ -158,18 +158,12 @@ class DailyWorkflowSystem:
         event_key = f"workflow_executed_{today_key}_{event.action}"
         
         # Redisから実行履歴を確認
-        if self.memory_system and hasattr(self.memory_system, 'redis_client'):
-            executed = self.memory_system.redis_client.get(event_key)
-            if executed:
-                logger.debug(f"⏭️ Event {event.action} already executed today (Redis)")
-                return True
-        
-        # フォールバック: メモリベース実行履歴
-        if not hasattr(self, '_executed_events'):
-            self._executed_events = {}
-        
-        if event_key in self._executed_events:
-            logger.debug(f"⏭️ Event {event.action} already executed today (Memory)")
+        if not self.memory_system or not hasattr(self.memory_system, 'redis_client'):
+            raise RuntimeError("Redis memory system is required but not available")
+            
+        executed = self.memory_system.redis_client.get(event_key)
+        if executed:
+            logger.debug(f"⏭️ Event {event.action} already executed today (Redis)")
             return True
         
         logger.debug(f"✅ Event {event.action} not yet executed today")
@@ -531,18 +525,7 @@ class DailyWorkflowSystem:
                     
                 except Exception as redis_error:
                     logger.warning(f"⚠️ Failed to record event execution in Redis: {redis_error}")
-            
-            # フォールバック: メモリベース実行履歴
-            if not hasattr(self, '_executed_events'):
-                self._executed_events = {}
-            
-            self._executed_events[event_key] = {
-                'event_action': event.action,
-                'executed_at': execution_time,
-                'phase': event.phase.value
-            }
-            
-            logger.debug(f"📝 Event execution recorded in memory: {event.action}")
+                    raise RuntimeError(f"Event execution recording failed: {redis_error}")
             
         except Exception as e:
             logger.error(f"❌ Failed to mark event as executed: {event.action} - {e}")
@@ -561,16 +544,9 @@ class DailyWorkflowSystem:
                 # Redis確認
                 executed = False
                 if self.memory_system and hasattr(self.memory_system, 'redis_client'):
-                    try:
-                        executed_data = self.memory_system.redis_client.get(event_key)
-                        if executed_data:
-                            executed = True
-                    except:
-                        pass
-                
-                # メモリ確認（フォールバック）
-                if not executed and hasattr(self, '_executed_events'):
-                    executed = event_key in self._executed_events
+                    executed_data = self.memory_system.redis_client.get(event_key)
+                    if executed_data:
+                        executed = True
                 
                 if executed:
                     executed_today.append({

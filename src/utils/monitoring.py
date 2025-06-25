@@ -208,7 +208,7 @@ class PrometheusMetrics:
     def get_metrics(self) -> str:
         """Prometheusメトリクス出力"""
         if not PROMETHEUS_AVAILABLE:
-            return ""
+            raise RuntimeError("Prometheus client is required but not available")
         return generate_latest(self.registry).decode('utf-8')
 
 

@@ -1,0 +1,109 @@
+{
+  "allowedTools": [
+    "Edit",
+    "MultiEdit", 
+    "Write",
+    "Bash",
+    "Read",
+    "Glob",
+    "Grep",
+    "LS",
+    "NotebookRead",
+    "NotebookEdit",
+    "WebFetch",
+    "TodoRead",
+    "TodoWrite",
+    "WebSearch",
+    "mcp__brave-search__brave_web_search",
+    "mcp__brave-search__brave_local_search",
+    "mcp__context7__resolve-library-id",
+    "mcp__context7__get-library-docs",
+    "mcp__ide__getDiagnostics",
+    "mcp__ide__executeCode"
+  ],
+  "allowedBashCommands": [
+    "git add:*",
+    "git commit:*", 
+    "git push:*",
+    "git pull:*",
+    "git status:*",
+    "git diff:*",
+    "git log:*",
+    "git checkout:*",
+    "git branch:*",
+    "pytest:*",
+    "python:*",
+    "pip:*",
+    "curl:*",
+    "tail:*",
+    "grep:*",
+    "ps:*",
+    "kill:*",
+    "docker:*",
+    "docker-compose:*",
+    "redis-cli:*",
+    "psql:*",
+    "gh:*",
+    "flake8:*",
+    "mypy:*",
+    "bandit:*"
+  ],
+  "projectSpecific": {
+    "name": "Discord Multi-Agent System",
+    "version": "v0.2.4",
+    "mainLanguage": "python",
+    "testFramework": "pytest",
+    "architecture": "Clean Architecture + Fail-fast",
+    "developmentPrinciples": ["TDD", "MCP-driven", "Fail-fast", "Clean Architecture"],
+    "codeQualityTools": ["flake8", "mypy", "bandit", "pytest-cov"],
+    "requiredCoverage": 80
+  },
+  "autoWorkflow": {
+    "tddCycle": {
+      "enabled": true,
+      "triggers": ["実装", "機能追加", "修正", "改善", "implement", "add feature", "fix bug", "improve"],
+      "execution": "automatic",
+      "phases": ["mcp_research", "red_test", "green_implement", "refactor_quality"],
+      "qualityRequirements": {
+        "minCoverage": 80,
+        "testCommand": "python -m pytest tests/ --cov=src/",
+        "staticAnalysis": ["flake8", "mypy", "bandit"]
+      }
+    },
+    "errorResolution": {
+      "enabled": true,
+      "triggers": ["エラー", "例外", "動かない", "失敗", "error", "exception", "not working", "failed"],
+      "execution": "automatic",
+      "phases": ["error_analysis", "mcp_research", "hypothesis_testing", "fix_implementation", "verification"],
+      "mcpRequired": true
+    },
+    "deployValidation": {
+      "enabled": true,
+      "triggers": ["コミット", "プルリクエスト", "デプロイ", "commit", "pull request", "deploy"],
+      "execution": "automatic",
+      "phases": ["quality_check", "full_test_suite", "environment_validation", "approval_decision"],
+      "thresholds": {
+        "immediate": 100,
+        "conditional": 80,
+        "rejection": 79
+      }
+    }
+  },
+  "mcpIntegration": {
+    "required": true,
+    "informationFreshness": "48h",
+    "preferredSources": ["context7", "brave_search"],
+    "mandatoryForNewFeatures": true,
+    "mandatoryForErrorResolution": true
+  },
+  "environmentSettings": {
+    "logFile": "logs/discord_agent.log",
+    "healthEndpoint": "http://localhost:8000/health",
+    "mainEntryPoint": "main.py",
+    "testDirectory": "tests/",
+    "sourceDirectory": "src/",
+    "docsDirectory": "docs/",
+    "maxFileSize": "10MB",
+    "excludePatterns": ["*.log", "venv/*", ".backup_*", "__pycache__/*", "*.pyc"]
+  }
+}
