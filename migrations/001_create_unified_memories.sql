@@ -4,11 +4,14 @@
 -- pgvector拡張が必要（インストール確認）
 CREATE EXTENSION IF NOT EXISTS vector;
 
+-- 既存テーブルが存在する場合は削除して再作成
+DROP TABLE IF EXISTS unified_memories CASCADE;
+
 -- unified_memories テーブル作成
-CREATE TABLE IF NOT EXISTS unified_memories (
+CREATE TABLE unified_memories (
     -- 基本識別情報
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    timestamp TIMESTAMP NOT NULL,
+    memory_timestamp TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT NOW(),
     
     -- Discord関連情報
@@ -35,7 +38,7 @@ CREATE TABLE IF NOT EXISTS unified_memories (
     importance_score FLOAT DEFAULT 0.0, -- 重要度スコア（0.0-1.0）
     
     -- インデックス用タイムスタンプ
-    date_key DATE GENERATED ALWAYS AS (timestamp::date) STORED
+    date_key DATE GENERATED ALWAYS AS (memory_timestamp::DATE) STORED
 );
 
 -- インデックス作成
@@ -47,15 +50,15 @@ WITH (lists = 100);
 
 -- 2. 日付範囲検索用
 CREATE INDEX IF NOT EXISTS idx_unified_memories_date 
-ON unified_memories (date_key DESC, timestamp DESC);
+ON unified_memories (date_key DESC, memory_timestamp DESC);
 
 -- 3. チャンネル・ユーザー検索用
 CREATE INDEX IF NOT EXISTS idx_unified_memories_channel_user 
-ON unified_memories (channel_id, user_id, timestamp DESC);
+ON unified_memories (channel_id, user_id, memory_timestamp DESC);
 
 -- 4. 記憶タイプ別検索用
 CREATE INDEX IF NOT EXISTS idx_unified_memories_type 
-ON unified_memories (memory_type, timestamp DESC);
+ON unified_memories (memory_type, memory_timestamp DESC);
 
 -- 5. エンティティ検索用（JSONB GIN）
 CREATE INDEX IF NOT EXISTS idx_unified_memories_entities 
@@ -67,7 +70,10 @@ ON unified_memories USING gin (metadata);
 
 -- 7. 重要度・進捗検索用
 CREATE INDEX IF NOT EXISTS idx_unified_memories_progress 
-ON unified_memories (progress_type, importance_score DESC, timestamp DESC);
+ON unified_memories (progress_type, importance_score DESC, memory_timestamp DESC);
+
+-- 既存関数削除（戻り値型変更のため）
+DROP FUNCTION IF EXISTS search_unified_memories(vector, double precision, integer, date, character varying[]);
 
 -- セマンティック検索関数
 CREATE OR REPLACE FUNCTION search_unified_memories(
@@ -78,7 +84,7 @@ CREATE OR REPLACE FUNCTION search_unified_memories(
     memory_types VARCHAR[] DEFAULT NULL
 ) RETURNS TABLE (
     id UUID,
-    timestamp TIMESTAMP,
+    memory_timestamp TIMESTAMP,
     channel_id BIGINT,
     user_id VARCHAR(255),
     content TEXT,
@@ -91,7 +97,7 @@ BEGIN
     RETURN QUERY
     SELECT 
         m.id,
-        m.timestamp,
+        m.memory_timestamp,
         m.channel_id,
         m.user_id,
         m.content,
@@ -104,13 +110,16 @@ BEGIN
         (1 - (m.embedding <=> query_embedding)) > similarity_threshold
         AND (date_filter IS NULL OR m.date_key >= date_filter)
         AND (memory_types IS NULL OR m.memory_type = ANY(memory_types))
-    ORDER BY similarity DESC, m.timestamp DESC
+    ORDER BY similarity DESC, m.memory_timestamp DESC
     LIMIT limit_count;
 END;
 $$ LANGUAGE plpgsql;
 
+-- 既存ビュー削除
+DROP VIEW IF EXISTS daily_entity_progress CASCADE;
+
 -- 進捗追跡ビュー（日別エンティティ進捗）
-CREATE OR REPLACE VIEW daily_entity_progress AS
+CREATE VIEW daily_entity_progress AS
 SELECT 
     date_key,
     entity->>'name' as entity_name,
@@ -132,7 +141,7 @@ DECLARE
     deleted_count INT;
 BEGIN
     DELETE FROM unified_memories 
-    WHERE timestamp < NOW() - INTERVAL '1 day' * days_to_keep;
+    WHERE memory_timestamp < NOW() - INTERVAL '1 day' * days_to_keep;
     
     GET DIAGNOSTICS deleted_count = ROW_COUNT;
     RETURN deleted_count;

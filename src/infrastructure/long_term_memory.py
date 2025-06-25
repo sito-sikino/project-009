@@ -67,6 +67,10 @@ class LongTermMemoryProcessor:
 
         self.logger = logging.getLogger(__name__)
 
+        # Phase 3: 環境変数制御機能実装
+        self.is_enabled = os.getenv('LONG_TERM_MEMORY_ENABLED', 'false').lower() == 'true'
+        self.logger.info(f"🧠 Long-term Memory System: {'ENABLED' if self.is_enabled else 'DISABLED'}")
+
         # 基盤メモリシステム
         self.memory_system = ImprovedDiscordMemorySystem(
             redis_url=redis_url,
@@ -151,6 +155,19 @@ class LongTermMemoryProcessor:
         Returns:
             (処理済み記憶一覧, 進捗差分)
         """
+        # Phase 3: 環境変数制御チェック
+        if not self.is_enabled:
+            self.logger.info("🚫 Long-term memory processing is disabled (LONG_TERM_MEMORY_ENABLED=false)")
+            return [], ProgressDifferential(
+                date=target_date or datetime.now(),
+                new_entities=[],
+                progressed_entities=[],
+                stagnant_entities=[],
+                completed_tasks=[],
+                new_skills=[],
+                overall_summary="長期記憶システムが無効です"
+            )
+
         if target_date is None:
             target_date = datetime.now()
 
@@ -464,7 +481,7 @@ class LongTermMemoryProcessor:
             for memory in memories:
                 await conn.execute("""
                     INSERT INTO unified_memories (
-                        id, timestamp, channel_id, user_id, message_id,
+                        id, memory_timestamp, channel_id, user_id, message_id,
                         content, memory_type, metadata, embedding,
                         minhash_signature, entities, progress_type, importance_score
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)

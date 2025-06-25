@@ -1,0 +1,38 @@
+# Discord Multi-Agent System Dependencies
+# TDD Phase 2 - 基本テスト環境セットアップ
+
+# Core Discord & AI Framework
+discord.py==2.3.2
+langgraph==0.4.8
+langchain==0.3.25
+langchain-google-genai==2.0.5
+
+# Database & Memory
+redis>=5.3.0  # Updated for Python 3.12 compatibility
+asyncpg==0.29.0
+psycopg2-binary==2.9.9
+datasketch==1.6.5  # MinHash/LSH for deduplication
+
+# Testing Framework
+pytest==8.0.0
+pytest-asyncio==0.23.0
+pytest-mock==3.12.0
+pytest-cov==4.1.0
+
+# Development Tools
+python-dotenv==1.0.0
+black==24.4.2
+isort==5.13.0
+mypy==1.8.0
+flake8==7.0.0
+
+# HTTP & Utilities
+aiohttp==3.9.1
+typing-extensions==4.9.0
+
+# Production Monitoring & Metrics
+prometheus-client==0.20.0
+psutil==5.9.8
+
+# Production Safety & Reliability  
+tenacity==8.2.3  # For retry logic (already in memory_system_improved.py)

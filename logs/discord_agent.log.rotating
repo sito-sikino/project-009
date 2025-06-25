@@ -5787,3 +5787,109 @@
 2025-06-25 09:54:32,289 | src.application.discord_app_service:198 | [32mINFO[0m | _start_discord_clients() | ✅ Paz Bot connection initiated successfully
 2025-06-25 09:54:32,289 | system.discord_clients:283 | [32mINFO[0m | log_component_status() | ✅ Discord_Clients: ready (4/4 clients)
 2025-06-25 09:54:32,289 | src.application.discord_app_service:208 | [32mINFO[0m | _start_discord_clients() | 🎉 Successfully initiated 4/4 Discord clients
+2025-06-25 22:31:38,678 | src.utils.logger:99 | [32mINFO[0m | setup_logging() | 🚀 Logging system initialized
+2025-06-25 22:31:38,678 | src.utils.logger:100 | [32mINFO[0m | setup_logging() | Log level: INFO
+2025-06-25 22:31:38,678 | src.utils.logger:101 | [32mINFO[0m | setup_logging() | Log file: logs/discord_agent.log
+2025-06-25 22:31:38,678 | src.utils.logger:102 | [32mINFO[0m | setup_logging() | Environment: test
+2025-06-25 22:31:38,679 | src.container.system_container:182 | [32mINFO[0m | initialize() | 🔧 Initializing System Container...
+2025-06-25 22:31:38,679 | system.system_container:283 | [32mINFO[0m | log_component_status() | 🔄 System_Container: starting
+2025-06-25 22:31:38,679 | src.container.system_container:230 | [32mINFO[0m | _resolve_initialization_order() | 🔄 Component initialization order: settings → priority_queue → gemini_client → memory_system → reception_client → agent_supervisor → spectra_bot → lynq_bot → paz_bot → message_router → long_term_memory_processor → daily_report_generator → integrated_message_system → event_driven_workflow_orchestrator → daily_workflow → autonomous_speech
+2025-06-25 22:31:38,679 | system.settings:283 | [32mINFO[0m | log_component_status() | ✅ Settings: ready
+2025-06-25 22:31:38,679 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ settings initialized
+2025-06-25 22:31:38,679 | system.priority_queue:283 | [32mINFO[0m | log_component_status() | ✅ Priority_Queue: ready
+2025-06-25 22:31:38,679 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ priority_queue initialized
+2025-06-25 22:31:38,680 | system.gemini_client:283 | [32mINFO[0m | log_component_status() | ✅ Gemini_Client: ready
+2025-06-25 22:31:38,680 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ gemini_client initialized
+2025-06-25 22:31:38,680 | src.infrastructure.memory_system:189 | [32mINFO[0m | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-25 22:31:38,681 | system.memory_system:283 | [32mINFO[0m | log_component_status() | ✅ Memory_System: ready
+2025-06-25 22:31:38,681 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ memory_system initialized
+2025-06-25 22:31:38,724 | discord.client:295 | [33mWARNING[0m | __init__() | PyNaCl is not installed, voice will NOT be supported
+2025-06-25 22:31:38,725 | system.reception_client:283 | [32mINFO[0m | log_component_status() | ✅ Reception_Client: ready
+2025-06-25 22:31:38,725 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ reception_client initialized
+2025-06-25 22:31:38,763 | system.agent_supervisor:283 | [32mINFO[0m | log_component_status() | ✅ Agent_Supervisor: ready
+2025-06-25 22:31:38,763 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ agent_supervisor initialized
+2025-06-25 22:31:38,774 | system.spectra_bot:283 | [32mINFO[0m | log_component_status() | ✅ Spectra_Bot: ready
+2025-06-25 22:31:38,774 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ spectra_bot initialized
+2025-06-25 22:31:38,774 | system.lynq_bot:283 | [32mINFO[0m | log_component_status() | ✅ Lynq_Bot: ready
+2025-06-25 22:31:38,774 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ lynq_bot initialized
+2025-06-25 22:31:38,774 | system.paz_bot:283 | [32mINFO[0m | log_component_status() | ✅ Paz_Bot: ready
+2025-06-25 22:31:38,774 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ paz_bot initialized
+2025-06-25 22:31:38,775 | system.message_router:283 | [32mINFO[0m | log_component_status() | ✅ Message_Router: ready
+2025-06-25 22:31:38,775 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ message_router initialized
+2025-06-25 22:31:38,775 | src.infrastructure.long_term_memory:72 | [32mINFO[0m | __init__() | 🧠 Long-term Memory System: ENABLED
+2025-06-25 22:31:38,775 | src.infrastructure.memory_system:189 | [32mINFO[0m | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-25 22:31:38,784 | system.long_term_memory_processor:283 | [32mINFO[0m | log_component_status() | ✅ Long_Term_Memory_Processor: ready
+2025-06-25 22:31:38,784 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ long_term_memory_processor initialized
+2025-06-25 22:31:38,788 | system.daily_report_generator:283 | [32mINFO[0m | log_component_status() | ✅ Daily_Report_Generator: ready
+2025-06-25 22:31:38,788 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ daily_report_generator initialized
+2025-06-25 22:31:38,788 | system.integrated_message_system:283 | [32mINFO[0m | log_component_status() | ✅ Integrated_Message_System: ready
+2025-06-25 22:31:38,788 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ integrated_message_system initialized
+2025-06-25 22:31:38,788 | system.event_driven_workflow_orchestrator:283 | [32mINFO[0m | log_component_status() | ✅ Event_Driven_Workflow_Orchestrator: ready
+2025-06-25 22:31:38,788 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ event_driven_workflow_orchestrator initialized
+2025-06-25 22:31:38,789 | system.daily_workflow:283 | [32mINFO[0m | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-25 22:31:38,789 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ daily_workflow initialized
+2025-06-25 22:31:38,790 | src.agents.autonomous_speech:78 | [32mINFO[0m | __init__() | 🎙️ LLM統合型 Autonomous Speech System initialized for test
+2025-06-25 22:31:38,790 | src.agents.autonomous_speech:79 | [32mINFO[0m | __init__() | 📊 Speech probability: 100%
+2025-06-25 22:31:38,790 | src.agents.autonomous_speech:80 | [32mINFO[0m | __init__() | ⏱️ Tick interval: 10秒
+2025-06-25 22:31:38,790 | src.agents.autonomous_speech:82 | [32mINFO[0m | __init__() | 🔗 Workflow integration enabled
+2025-06-25 22:31:38,790 | system.autonomous_speech:283 | [32mINFO[0m | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-25 22:31:38,791 | src.container.system_container:260 | [32mINFO[0m | _initialize_component() | ✅ autonomous_speech initialized
+2025-06-25 22:31:38,791 | system.system_container:283 | [32mINFO[0m | log_component_status() | ✅ System_Container: ready (16 components)
+2025-06-25 22:31:38,791 | src.container.system_container:195 | [32mINFO[0m | initialize() | ✅ System Container initialized with 16 components
+2025-06-25 22:31:38,791 | src.container.system_container:444 | [32mINFO[0m | cleanup() | 🧹 Cleaning up System Container...
+2025-06-25 22:31:38,826 | src.infrastructure.memory_system:828 | [32mINFO[0m | cleanup() | Memory System cleanup completed successfully
+2025-06-25 22:31:38,826 | system.system_container:283 | [32mINFO[0m | log_component_status() | ⏹️ System_Container: stopping
+2025-06-25 22:31:38,826 | src.container.system_container:464 | [32mINFO[0m | cleanup() | ✅ System Container cleanup completed
+2025-06-25 22:32:33,018 | src.utils.logger:99 | INFO | setup_logging() | 🚀 Logging system initialized
+2025-06-25 22:32:33,018 | src.utils.logger:100 | INFO | setup_logging() | Log level: INFO
+2025-06-25 22:32:33,018 | src.utils.logger:101 | INFO | setup_logging() | Log file: logs/discord_agent.log
+2025-06-25 22:32:33,018 | src.utils.logger:102 | INFO | setup_logging() | Environment: production
+2025-06-25 22:32:33,018 | src.container.system_container:182 | INFO | initialize() | 🔧 Initializing System Container...
+2025-06-25 22:32:33,018 | system.system_container:283 | INFO | log_component_status() | 🔄 System_Container: starting
+2025-06-25 22:32:33,018 | src.container.system_container:230 | INFO | _resolve_initialization_order() | 🔄 Component initialization order: settings → priority_queue → gemini_client → memory_system → reception_client → agent_supervisor → spectra_bot → lynq_bot → paz_bot → message_router → long_term_memory_processor → daily_report_generator → integrated_message_system → event_driven_workflow_orchestrator → daily_workflow → autonomous_speech
+2025-06-25 22:32:33,018 | system.settings:283 | INFO | log_component_status() | ✅ Settings: ready
+2025-06-25 22:32:33,018 | src.container.system_container:260 | INFO | _initialize_component() | ✅ settings initialized
+2025-06-25 22:32:33,019 | system.priority_queue:283 | INFO | log_component_status() | ✅ Priority_Queue: ready
+2025-06-25 22:32:33,019 | src.container.system_container:260 | INFO | _initialize_component() | ✅ priority_queue initialized
+2025-06-25 22:32:33,662 | system.gemini_client:283 | INFO | log_component_status() | ✅ Gemini_Client: ready
+2025-06-25 22:32:33,663 | src.container.system_container:260 | INFO | _initialize_component() | ✅ gemini_client initialized
+2025-06-25 22:32:33,689 | src.infrastructure.memory_system:189 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-25 22:32:33,690 | system.memory_system:283 | INFO | log_component_status() | ✅ Memory_System: ready
+2025-06-25 22:32:33,690 | src.container.system_container:260 | INFO | _initialize_component() | ✅ memory_system initialized
+2025-06-25 22:32:33,749 | discord.client:295 | WARNING | __init__() | PyNaCl is not installed, voice will NOT be supported
+2025-06-25 22:32:33,749 | system.reception_client:283 | INFO | log_component_status() | ✅ Reception_Client: ready
+2025-06-25 22:32:33,749 | src.container.system_container:260 | INFO | _initialize_component() | ✅ reception_client initialized
+2025-06-25 22:32:33,773 | system.agent_supervisor:283 | INFO | log_component_status() | ✅ Agent_Supervisor: ready
+2025-06-25 22:32:33,773 | src.container.system_container:260 | INFO | _initialize_component() | ✅ agent_supervisor initialized
+2025-06-25 22:32:33,780 | system.spectra_bot:283 | INFO | log_component_status() | ✅ Spectra_Bot: ready
+2025-06-25 22:32:33,781 | src.container.system_container:260 | INFO | _initialize_component() | ✅ spectra_bot initialized
+2025-06-25 22:32:33,781 | system.lynq_bot:283 | INFO | log_component_status() | ✅ Lynq_Bot: ready
+2025-06-25 22:32:33,781 | src.container.system_container:260 | INFO | _initialize_component() | ✅ lynq_bot initialized
+2025-06-25 22:32:33,781 | system.paz_bot:283 | INFO | log_component_status() | ✅ Paz_Bot: ready
+2025-06-25 22:32:33,781 | src.container.system_container:260 | INFO | _initialize_component() | ✅ paz_bot initialized
+2025-06-25 22:32:33,781 | system.message_router:283 | INFO | log_component_status() | ✅ Message_Router: ready
+2025-06-25 22:32:33,782 | src.container.system_container:260 | INFO | _initialize_component() | ✅ message_router initialized
+2025-06-25 22:32:34,052 | src.infrastructure.long_term_memory:72 | INFO | __init__() | 🧠 Long-term Memory System: ENABLED
+2025-06-25 22:32:34,053 | src.infrastructure.memory_system:189 | INFO | _sanitize_postgres_url() | PostgreSQL URL (sanitized): postgresql://discord_agent_prod:****@localhost:5432/discord_agent_prod
+2025-06-25 22:32:34,064 | system.long_term_memory_processor:283 | INFO | log_component_status() | ✅ Long_Term_Memory_Processor: ready
+2025-06-25 22:32:34,064 | src.container.system_container:260 | INFO | _initialize_component() | ✅ long_term_memory_processor initialized
+2025-06-25 22:32:34,065 | system.daily_report_generator:283 | INFO | log_component_status() | ✅ Daily_Report_Generator: ready
+2025-06-25 22:32:34,065 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_report_generator initialized
+2025-06-25 22:32:34,065 | system.integrated_message_system:283 | INFO | log_component_status() | ✅ Integrated_Message_System: ready
+2025-06-25 22:32:34,065 | src.container.system_container:260 | INFO | _initialize_component() | ✅ integrated_message_system initialized
+2025-06-25 22:32:34,065 | system.event_driven_workflow_orchestrator:283 | INFO | log_component_status() | ✅ Event_Driven_Workflow_Orchestrator: ready
+2025-06-25 22:32:34,066 | src.container.system_container:260 | INFO | _initialize_component() | ✅ event_driven_workflow_orchestrator initialized
+2025-06-25 22:32:34,066 | system.daily_workflow:283 | INFO | log_component_status() | ✅ Daily_Workflow: ready
+2025-06-25 22:32:34,066 | src.container.system_container:260 | INFO | _initialize_component() | ✅ daily_workflow initialized
+2025-06-25 22:32:34,067 | src.agents.autonomous_speech:78 | INFO | __init__() | 🎙️ LLM統合型 Autonomous Speech System initialized for production
+2025-06-25 22:32:34,067 | src.agents.autonomous_speech:79 | INFO | __init__() | 📊 Speech probability: 33%
+2025-06-25 22:32:34,067 | src.agents.autonomous_speech:80 | INFO | __init__() | ⏱️ Tick interval: 300秒
+2025-06-25 22:32:34,067 | src.agents.autonomous_speech:82 | INFO | __init__() | 🔗 Workflow integration enabled
+2025-06-25 22:32:34,067 | system.autonomous_speech:283 | INFO | log_component_status() | ✅ Autonomous_Speech: ready
+2025-06-25 22:32:34,068 | src.container.system_container:260 | INFO | _initialize_component() | ✅ autonomous_speech initialized
+2025-06-25 22:32:34,068 | system.system_container:283 | INFO | log_component_status() | ✅ System_Container: ready (16 components)
+2025-06-25 22:32:34,068 | src.container.system_container:195 | INFO | initialize() | ✅ System Container initialized with 16 components
+2025-06-25 22:32:34,068 | src.container.system_container:444 | INFO | cleanup() | 🧹 Cleaning up System Container...
+2025-06-25 22:32:34,103 | src.infrastructure.memory_system:828 | INFO | cleanup() | Memory System cleanup completed successfully
+2025-06-25 22:32:34,103 | system.system_container:283 | INFO | log_component_status() | ⏹️ System_Container: stopping
+2025-06-25 22:32:34,103 | src.container.system_container:464 | INFO | cleanup() | ✅ System Container cleanup completed
