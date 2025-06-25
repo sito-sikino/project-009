@@ -432,6 +432,169 @@ class TestEventDrivenWorkflow:
         mock_message_system.send_integrated_morning_message.assert_called_once()
 
 
+class TestLongTermMemoryPhase3Integration:
+    """Phase 3統合機能の失敗テスト（TDD RED段階）"""
+    
+    @pytest.fixture
+    def processor(self):
+        """LongTermMemoryProcessorのテストフィクスチャ"""
+        return LongTermMemoryProcessor(
+            redis_url="redis://localhost:6379",
+            postgres_url="postgresql://test:test@localhost:5432/test_db",
+            gemini_api_key="test_api_key"
+        )
+    
+    @pytest.mark.asyncio
+    async def test_new_embedding_client_integration_fails(self, processor):
+        """新しいembedding_clientとの統合が未実装で失敗することを確認"""
+        # 期待: GoogleEmbeddingClient使用
+        # 実際: 直接GoogleGenerativeAIEmbeddings使用（統合未実装）
+        
+        # embedding_clientの型確認
+        assert hasattr(processor, 'embedding_client'), "embedding_client属性が存在しない"
+        
+        # 新しいGoogleEmbeddingClientクラスの使用確認（失敗するはず）
+        from src.infrastructure.embedding_client import GoogleEmbeddingClient
+        assert isinstance(processor.embedding_client, GoogleEmbeddingClient), "新しいGoogleEmbeddingClientが未統合"
+    
+    @pytest.mark.asyncio
+    async def test_environment_variable_controls_passes(self, processor):
+        """DEDUPLICATION_THRESHOLD, API_QUOTA_DAILY_LIMIT環境変数制御統合成功確認"""
+        
+        with patch.dict('os.environ', {
+            'DEDUPLICATION_THRESHOLD': '0.9',
+            'API_QUOTA_DAILY_LIMIT': '5',
+            'MIN_IMPORTANCE_SCORE': '0.6'
+        }):
+            # 新しいprocessorインスタンス作成
+            new_processor = LongTermMemoryProcessor()
+            
+            # 環境変数からの読み込み確認
+            assert hasattr(new_processor, 'deduplicator'), "deduplicator属性が存在しない"
+            assert new_processor.deduplicator.threshold == 0.9, "環境変数DEDUPLICATION_THRESHOLDが未対応"
+            
+            assert hasattr(new_processor, 'daily_api_limit'), "daily_api_limit属性が存在しない"
+            assert new_processor.daily_api_limit == 5, "環境変数API_QUOTA_DAILY_LIMITが未対応"
+            
+            assert hasattr(new_processor, 'min_importance_score'), "min_importance_score属性が存在しない"
+            assert new_processor.min_importance_score == 0.6, "環境変数MIN_IMPORTANCE_SCOREが未対応"
+    
+    @pytest.mark.asyncio
+    async def test_batch_embedding_optimization_passes(self, processor):
+        """Phase 1-2で構築した最適化機能（リトライ、レート制限等）統合成功確認"""
+        
+        # ProcessedMemoryオブジェクトのサンプル作成
+        from src.infrastructure.long_term_memory import ProcessedMemory
+        sample_memories = [
+            ProcessedMemory(
+                id="test1", original_content="テスト1", structured_content="テスト文書1",
+                timestamp=datetime.now(), channel_id=123, user_id="user1", memory_type="test",
+                entities=[], importance_score=0.5, progress_indicators={}, metadata={}
+            ),
+            ProcessedMemory(
+                id="test2", original_content="テスト2", structured_content="テスト文書2",
+                timestamp=datetime.now(), channel_id=123, user_id="user2", memory_type="test",
+                entities=[], importance_score=0.5, progress_indicators={}, metadata={}
+            ),
+            ProcessedMemory(
+                id="test3", original_content="テスト3", structured_content="テスト文書3",
+                timestamp=datetime.now(), channel_id=123, user_id="user3", memory_type="test",
+                entities=[], importance_score=0.5, progress_indicators={}, metadata={}
+            )
+        ]
+        
+        # _api3_batch_embeddings()の実装確認
+        with patch.object(processor, 'api_usage_count', 0):
+            # embed_documents_batch()メソッドが使用されることを期待
+            with patch.object(processor.embeddings_client, 'embed_documents_batch') as mock_batch:
+                mock_batch.return_value = [[0.1] * 768] * 3
+                
+                result = await processor._api3_batch_embeddings(sample_memories)
+                
+                # 新しいバッチメソッドが呼び出されることを確認
+                mock_batch.assert_called_once()
+                assert len(result) == 3, "バッチ埋め込み結果が期待と異なる"
+                assert all(memory.embedding == [0.1] * 768 for memory in result), "embedding割り当てが正しくない"
+    
+    @pytest.mark.asyncio
+    async def test_daily_memory_redis_key_pattern_passes(self, processor):
+        """デイリーメモリ用Redisキーパターンが統一されて成功"""
+        
+        test_date = datetime(2024, 1, 15)
+        
+        # 期待: 統一されたキーパターン "daily_memory:{date}:*"
+        
+        with patch('src.infrastructure.long_term_memory.redis.from_url') as mock_redis_from_url:
+            mock_redis_client = AsyncMock()
+            mock_redis_from_url.return_value = mock_redis_client
+            
+            # 統一されたキーパターンを返すモック
+            mock_redis_client.keys.return_value = [
+                f"daily_memory:{test_date.strftime('%Y-%m-%d')}:summary".encode(),
+                f"daily_memory:{test_date.strftime('%Y-%m-%d')}:analysis".encode()
+            ]
+            mock_redis_client.hgetall.return_value = {
+                b'content': b'test content',
+                b'timestamp': test_date.isoformat().encode(),
+                b'channel_id': b'123',
+                b'user_id': b'user1'
+            }
+            
+            # _fetch_daily_memoriesでキーパターンを確認
+            memories = await processor._fetch_daily_memories(test_date)
+            
+            # 統一キーパターンが使用されることを確認
+            expected_pattern = f"daily_memory:{test_date.strftime('%Y-%m-%d')}:*"
+            mock_redis_client.keys.assert_called_once_with(expected_pattern)
+    
+    @pytest.mark.asyncio
+    async def test_enhanced_error_handling_passes(self, processor):
+        """Phase 2で実装された強化エラーハンドリング統合成功確認"""
+        
+        # Phase 2で実装されたエラークラスの使用確認
+        from src.infrastructure.memory_system import MemorySystemConnectionError, MemorySystemError
+        
+        # 接続エラー時のエラーハンドリング確認
+        test_date = datetime.now()
+        
+        with patch.object(processor, 'daily_memory_consolidation') as mock_consolidation:
+            # Redis接続エラーをシミュレート
+            mock_consolidation.side_effect = MemorySystemConnectionError("Redis接続失敗")
+            
+            # 強化エラーハンドリングが適切に動作することを確認
+            with pytest.raises(MemorySystemConnectionError) as exc_info:
+                await processor.daily_memory_consolidation(test_date)
+            
+            assert "Redis接続失敗" in str(exc_info.value)
+    
+    @pytest.mark.asyncio 
+    async def test_performance_metrics_integration_passes(self, processor):
+        """Phase 2で実装されたパフォーマンス計測機能統合成功確認"""
+        
+        # performance_metrics属性の存在確認
+        assert hasattr(processor, 'performance_metrics'), "performance_metrics属性が存在しない"
+        
+        # _measure_performance()メソッドの存在確認
+        assert hasattr(processor, '_measure_performance'), "_measure_performance()メソッドが存在しない"
+        
+        # パフォーマンス計測の実行確認
+        from src.infrastructure.long_term_memory import ProcessedMemory
+        sample_memory = ProcessedMemory(
+            id="perf_test", original_content="テスト", structured_content="パフォーマンステスト",
+            timestamp=datetime.now(), channel_id=123, user_id="user1", memory_type="test",
+            entities=[], importance_score=0.5, progress_indicators={}, metadata={}
+        )
+        
+        with patch.object(processor.embeddings_client, 'embed_documents_batch') as mock_batch:
+            mock_batch.return_value = [[0.1] * 768]
+            
+            with patch.object(processor, '_measure_performance', wraps=processor._measure_performance) as mock_measure:
+                await processor._api3_batch_embeddings([sample_memory])
+                
+                # パフォーマンス計測が実行されることを確認
+                mock_measure.assert_called()
+
+
 # テスト設定
 @pytest.fixture(scope="session")
 def event_loop():

@@ -6,18 +6,25 @@ Long-term Memory System with 3-API Batch Processing
 import asyncio
 import json
 import logging
-import uuid
+import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
-from dataclasses import dataclass, asdict
-from pathlib import Path
+from dataclasses import dataclass
+
+import psutil
 
 import redis.asyncio as redis
 import asyncpg
-from langchain_google_genai import GoogleGenerativeAI, GoogleGenerativeAIEmbeddings
+from langchain_google_genai import GoogleGenerativeAI
+from pydantic import SecretStr
 
-from .deduplication_system import MinHashDeduplicator, MemoryItem, create_memory_item_from_dict
-from .memory_system import ImprovedDiscordMemorySystem
+from .deduplication_system import MinHashDeduplicator, MemoryItem
+from .memory_system import (
+    ImprovedDiscordMemorySystem,
+    MemorySystemError,
+    MemorySystemConnectionError
+)
+from .embedding_client import GoogleEmbeddingClient
 
 
 @dataclass
@@ -52,120 +59,204 @@ class ProgressDifferential:
 
 class LongTermMemoryProcessor:
     """3-API長期記憶処理システム"""
-    
+
     def __init__(self,
-                 redis_url: str = None,
-                 postgres_url: str = None,
-                 gemini_api_key: str = None):
-        
+                 redis_url: Optional[str] = None,
+                 postgres_url: Optional[str] = None,
+                 gemini_api_key: Optional[str] = None):
+
         self.logger = logging.getLogger(__name__)
-        
+
         # 基盤メモリシステム
         self.memory_system = ImprovedDiscordMemorySystem(
             redis_url=redis_url,
             postgres_url=postgres_url,
             gemini_api_key=gemini_api_key
         )
-        
+
         # Gemini 2.0 Flash（統合分析用）
+        api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
         self.gemini_flash = GoogleGenerativeAI(
             model="models/gemini-2.0-flash-exp",
-            google_api_key=gemini_api_key,
+            api_key=SecretStr(api_key) if api_key else None,
             temperature=0.1
         )
-        
-        # Embedding client
-        self.embeddings_client = GoogleGenerativeAIEmbeddings(
-            model="models/text-embedding-004",
-            google_api_key=gemini_api_key
+
+        # GoogleEmbeddingClient（Phase 1統合）
+        self.embeddings_client = GoogleEmbeddingClient(
+            api_key=gemini_api_key,
+            task_type="RETRIEVAL_DOCUMENT"
         )
-        
-        # 重複検出システム
+
+        # 重複検出システム（環境変数制御）
+        deduplication_threshold = float(os.getenv('DEDUPLICATION_THRESHOLD', '0.8'))
         self.deduplicator = MinHashDeduplicator(
-            threshold=0.8,  # 高精度重複検出
+            threshold=deduplication_threshold,
             num_perm=128
         )
-        
-        # API使用量カウンター（1日3回制限）
+
+        # API使用量カウンター（環境変数制御）
+        self.daily_api_limit = int(os.getenv('API_QUOTA_DAILY_LIMIT', '3'))
         self.api_usage_count = 0
-        self.last_processing_date = None
-        
+        self.last_processing_date: Optional[datetime] = None
+
+        # 重要度しきい値（環境変数制御）
+        self.min_importance_score = float(os.getenv('MIN_IMPORTANCE_SCORE', '0.4'))
+
+        # パフォーマンスメトリクス記録（Phase 2.3統合）
+        self.performance_metrics = {
+            'daily_consolidation_operations': 0,
+            'unified_analysis_operations': 0,
+            'batch_embedding_operations': 0,
+            'progress_differential_operations': 0,
+            'memory_storage_operations': 0,
+            'total_operations': 0
+        }
+
     async def initialize(self):
         """システム初期化"""
         await self.memory_system.initialize()
         self.logger.info("Long-term Memory Processor initialized")
-    
-    async def daily_memory_consolidation(self, 
-                                       target_date: datetime = None) -> Tuple[List[ProcessedMemory], ProgressDifferential]:
+
+    async def _measure_performance(self, operation_name: str, func, *args, **kwargs):
+        """各操作の詳細メトリクス測定（Phase 2.3統合）"""
+        start_time = asyncio.get_event_loop().time()
+        memory_before = psutil.Process().memory_info().rss if psutil else 0
+
+        try:
+            result = await func(*args, **kwargs)
+            success = True
+        finally:
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            memory_after = psutil.Process().memory_info().rss if psutil else 0
+            memory_delta = memory_after - memory_before
+
+            self.logger.info(f"Performance: {operation_name}", extra={
+                'elapsed_ms': int(elapsed_time * 1000),
+                'memory_delta_mb': memory_delta / 1024 / 1024 if psutil else 0,
+                'success': success
+            })
+
+            # パフォーマンスメトリクス更新
+            self.performance_metrics['total_operations'] += 1
+
+        return result
+
+    async def daily_memory_consolidation(
+            self, target_date: Optional[datetime] = None
+    ) -> Tuple[List[ProcessedMemory], ProgressDifferential]:
         """
         日次記憶統合処理（3-API）
-        
+
         Returns:
             (処理済み記憶一覧, 進捗差分)
         """
         if target_date is None:
             target_date = datetime.now()
-        
+
         # API使用量チェック
         if not self._check_api_quota(target_date):
-            raise RuntimeError("API使用量制限超過（1日3回制限）")
-        
+            raise RuntimeError(f"API使用量制限超過（1日{self.daily_api_limit}回制限）")
+
         self.logger.info(f"🧠 長期記憶化処理開始: {target_date.strftime('%Y-%m-%d')}")
         start_time = datetime.now()
-        
+
         try:
-            # 1. Redisからの記憶データ取得
-            raw_memories = await self._fetch_daily_memories(target_date)
+            # 1. Redisからの記憶データ取得（パフォーマンス計測付き）
+            raw_memories = await self._measure_performance(
+                "daily_memory_fetch",
+                self._fetch_daily_memories,
+                target_date
+            )
             self.logger.info(f"📊 取得記憶数: {len(raw_memories)}件")
-            
+
+            # パフォーマンスメトリクス更新
+            self.performance_metrics['daily_consolidation_operations'] += 1
+
             if not raw_memories:
                 self.logger.error("処理対象記憶が見つかりません")
                 raise ValueError(f"No processable memories found for date {target_date}")
-            
-            # 2. API 1: Gemini 2.0 Flash統合分析
-            processed_memories = await self._api1_unified_analysis(raw_memories)
+
+            # 2. API 1: Gemini 2.0 Flash統合分析（パフォーマンス計測付き）
+            processed_memories = await self._measure_performance(
+                "unified_analysis",
+                self._api1_unified_analysis,
+                raw_memories
+            )
             self.api_usage_count += 1
+            self.performance_metrics['unified_analysis_operations'] += 1
             self.logger.info(f"✅ API 1完了: {len(processed_memories)}件処理")
-            
+
             # 3. MinHash重複除去（API不要）
             unique_memories = self._remove_duplicates(processed_memories)
             duplicate_ratio = (len(processed_memories) - len(unique_memories)) / len(processed_memories) * 100
             self.logger.info(f"🔍 重複除去: {duplicate_ratio:.1f}% ({len(unique_memories)}件残存)")
-            
-            # 4. API 2: 進捗差分生成
-            progress_diff = await self._api2_progress_differential(unique_memories, target_date)
+
+            # 4. API 2: 進捗差分生成（パフォーマンス計測付き）
+            progress_diff = await self._measure_performance(
+                "progress_differential",
+                self._api2_progress_differential,
+                unique_memories, target_date
+            )
             self.api_usage_count += 1
+            self.performance_metrics['progress_differential_operations'] += 1
             self.logger.info("✅ API 2完了: 進捗差分生成")
-            
-            # 5. API 3: バッチembedding生成
-            final_memories = await self._api3_batch_embeddings(unique_memories)
+
+            # 5. API 3: バッチembedding生成（パフォーマンス計測付き）
+            final_memories = await self._measure_performance(
+                "batch_embeddings",
+                self._api3_batch_embeddings,
+                unique_memories
+            )
             self.api_usage_count += 1
+            self.performance_metrics['batch_embedding_operations'] += 1
             self.logger.info(f"✅ API 3完了: {len(final_memories)}件embedding生成")
-            
-            # 6. PostgreSQL保存
-            saved_count = await self._store_unified_memories(final_memories)
+
+            # 6. PostgreSQL保存（パフォーマンス計測付き）
+            saved_count = await self._measure_performance(
+                "unified_memory_storage",
+                self._store_unified_memories,
+                final_memories
+            )
+            self.performance_metrics['memory_storage_operations'] += 1
             self.logger.info(f"💾 PostgreSQL保存: {saved_count}件")
-            
+
             processing_time = (datetime.now() - start_time).total_seconds()
-            self.logger.info(f"🎉 長期記憶化完了: {processing_time:.1f}秒, API使用量: 3回")
-            
+            self.logger.info(
+                f"🎉 長期記憶化完了: {processing_time:.1f}秒, "
+                f"API使用量: {self.daily_api_limit}回",
+                extra={
+                    "processing_time_seconds": processing_time,
+                    "total_memories_processed": len(final_memories),
+                    "performance_metrics": self.performance_metrics
+                }
+            )
+
             return final_memories, progress_diff
-            
+
+        except (redis.RedisError, asyncpg.PostgresError) as e:
+            self.logger.error(f"❌ 長期記憶化接続エラー: {e}")
+            raise MemorySystemConnectionError(
+                f"Long-term memory processing failed: {e}"
+            )
         except Exception as e:
             self.logger.error(f"❌ 長期記憶化エラー: {e}")
-            raise
-    
+            raise MemorySystemError(f"Long-term memory processing failed: {e}")
+
     async def _fetch_daily_memories(self, target_date: datetime) -> List[Dict[str, Any]]:
         """Redis から指定日の記憶データ取得"""
         date_key = target_date.strftime('%Y-%m-%d')
-        
+
         # Redis接続
-        redis_client = redis.from_url(self.memory_system.redis_url)
-        
-        # 日次記憶キー取得
-        pattern = f"memory:{date_key}:*"
+        redis_url = self.memory_system.redis_url
+        if not redis_url:
+            raise ValueError("Redis URL not available")
+        redis_client = redis.from_url(redis_url)
+
+        # 日次記憶キー取得（Phase 3統一パターン）
+        pattern = f"daily_memory:{date_key}:*"
         keys = await redis_client.keys(pattern)
-        
+
         memories = []
         for key in keys:
             data = await redis_client.hgetall(key)
@@ -173,29 +264,29 @@ class LongTermMemoryProcessor:
                 # バイナリデータをデコード
                 decoded_data = {k.decode(): v.decode() for k, v in data.items()}
                 memories.append(decoded_data)
-        
+
         await redis_client.close()
         return memories
-    
+
     async def _api1_unified_analysis(self, raw_memories: List[Dict[str, Any]]) -> List[ProcessedMemory]:
         """API 1: Gemini 2.0 Flash統合分析"""
         self.logger.info("🔍 API 1: Gemini 2.0 Flash統合分析開始")
-        
+
         # プロンプト構築
         analysis_prompt = self._build_unified_analysis_prompt(raw_memories)
-        
+
         # Gemini 2.0 Flash実行
         response = await self.gemini_flash.ainvoke(analysis_prompt)
-        
+
         # 応答パース
         processed_memories = self._parse_analysis_response(response, raw_memories)
-        
+
         return processed_memories
-    
+
     def _build_unified_analysis_prompt(self, raw_memories: List[Dict[str, Any]]) -> str:
         """統合分析プロンプト構築"""
         memories_json = json.dumps(raw_memories, ensure_ascii=False, indent=2)
-        
+
         return f"""
 # Discord記憶統合分析タスク
 
@@ -251,7 +342,7 @@ class LongTermMemoryProcessor:
 
 重要性0.4未満は除外してください。エンティティ抽出は包括的に行い、個別具体的要素（TypeScript、転職等）が検索できるようにしてください。
 """
-    
+
     def _parse_analysis_response(self, response: str, raw_memories: List[Dict[str, Any]]) -> List[ProcessedMemory]:
         """分析応答パース"""
         try:
@@ -259,9 +350,9 @@ class LongTermMemoryProcessor:
             json_start = response.find('[')
             json_end = response.rfind(']') + 1
             json_content = response[json_start:json_end]
-            
+
             analysis_results = json.loads(json_content)
-            
+
             # ProcessedMemory作成
             processed_memories = []
             for result in analysis_results:
@@ -270,7 +361,7 @@ class LongTermMemoryProcessor:
                     (m for m in raw_memories if m.get('id') == result['id']),
                     None
                 )
-                
+
                 if original_memory:
                     processed_memory = ProcessedMemory(
                         id=result['id'],
@@ -286,13 +377,13 @@ class LongTermMemoryProcessor:
                         metadata=original_memory.get('metadata', {})
                     )
                     processed_memories.append(processed_memory)
-            
+
             return processed_memories
-            
+
         except Exception as e:
             self.logger.error(f"分析応答パースエラー: {e}")
-            return []
-    
+            raise MemorySystemError(f"Analysis response parsing failed: {e}")
+
     def _remove_duplicates(self, processed_memories: List[ProcessedMemory]) -> List[ProcessedMemory]:
         """MinHash重複除去"""
         memory_items = []
@@ -307,66 +398,67 @@ class LongTermMemoryProcessor:
                 metadata=memory.metadata
             )
             memory_items.append(item)
-        
+
         # 重複除去実行
         unique_items = self.deduplicator.batch_deduplicate(memory_items)
-        
+
         # ProcessedMemory形式に戻す
         unique_ids = {item.id for item in unique_items}
         unique_memories = [m for m in processed_memories if m.id in unique_ids]
-        
+
         # MinHashシグネチャ追加
         signatures = self.deduplicator.export_minhash_signatures()
         for memory in unique_memories:
             memory.minhash_signature = signatures.get(memory.id)
-        
+
         return unique_memories
-    
-    async def _api2_progress_differential(self, 
-                                        memories: List[ProcessedMemory], 
-                                        target_date: datetime) -> ProgressDifferential:
+
+    async def _api2_progress_differential(
+            self,
+            memories: List[ProcessedMemory],
+            target_date: datetime) -> ProgressDifferential:
         """API 2: 進捗差分生成"""
         self.logger.info("📈 API 2: 進捗差分生成開始")
-        
+
         # 前日記憶取得
         previous_date = target_date - timedelta(days=1)
         previous_snapshot = await self._get_previous_memory_snapshot(previous_date)
-        
+
         # 差分分析プロンプト
         diff_prompt = self._build_progress_diff_prompt(memories, previous_snapshot, target_date)
-        
+
         # Gemini実行
         response = await self.gemini_flash.ainvoke(diff_prompt)
-        
+
         # 差分結果パース
         progress_diff = self._parse_progress_diff_response(response, target_date)
-        
+
         return progress_diff
-    
+
     async def _api3_batch_embeddings(self, memories: List[ProcessedMemory]) -> List[ProcessedMemory]:
-        """API 3: バッチembedding生成"""
+        """API 3: バッチembedding生成（Phase 1統合）"""
         self.logger.info("🔗 API 3: バッチembedding生成開始")
-        
+
         # 全テキスト結合
         texts = [memory.structured_content for memory in memories]
-        
-        # バッチembedding生成
-        embeddings = await self.embeddings_client.aembed_documents(texts)
-        
+
+        # GoogleEmbeddingClientバッチ処理実行
+        embeddings = await self.embeddings_client.embed_documents_batch(texts)
+
         # embedding割り当て
         for memory, embedding in zip(memories, embeddings):
             memory.embedding = embedding
-        
+
         return memories
-    
+
     async def _store_unified_memories(self, memories: List[ProcessedMemory]) -> int:
         """PostgreSQL統一記憶保存"""
         if not memories:
             return 0
-        
+
         # PostgreSQL接続
         conn = await asyncpg.connect(self.memory_system.postgres_url)
-        
+
         try:
             saved_count = 0
             for memory in memories:
@@ -377,7 +469,7 @@ class LongTermMemoryProcessor:
                         minhash_signature, entities, progress_type, importance_score
                     ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                     ON CONFLICT (id) DO NOTHING
-                """, 
+                """,
                     memory.id,
                     memory.timestamp,
                     memory.channel_id,
@@ -393,33 +485,36 @@ class LongTermMemoryProcessor:
                     memory.importance_score
                 )
                 saved_count += 1
-            
+
             return saved_count
-            
+
         finally:
             await conn.close()
-    
+
     def _check_api_quota(self, target_date: datetime) -> bool:
         """API使用量制限チェック（1日3回）"""
         current_date = target_date.date()
         
-        if self.last_processing_date != current_date:
+        # last_processing_dateがdatetime型の場合はdate()で変換
+        last_date = self.last_processing_date.date() if self.last_processing_date else None
+
+        if last_date != current_date:
             # 新しい日 - リセット
             self.api_usage_count = 0
-            self.last_processing_date = current_date
+            self.last_processing_date = target_date
             return True
-        
-        return self.api_usage_count < 3
-    
+
+        return self.api_usage_count < self.daily_api_limit
+
     # 他のヘルパーメソッド（progress_diff関連）は簡略化して後で実装
     async def _get_previous_memory_snapshot(self, date: datetime) -> Dict[str, Any]:
         """前日記憶スナップショット取得（簡略版）"""
         return {"entities": [], "summary": "前日データなし"}
-    
+
     def _build_progress_diff_prompt(self, memories, previous_snapshot, target_date) -> str:
         """進捗差分プロンプト構築（簡略版）"""
         return f"進捗差分を分析してください。日付: {target_date.strftime('%Y-%m-%d')}"
-    
+
     def _parse_progress_diff_response(self, response: str, target_date: datetime) -> ProgressDifferential:
         """進捗差分応答パース（簡略版）"""
         return ProgressDifferential(

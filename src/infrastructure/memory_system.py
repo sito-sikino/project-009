@@ -14,14 +14,12 @@ from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
-try:
-    import psutil
-except ImportError:
-    psutil = None
+import psutil
 
 import redis.asyncio as redis
 import asyncpg
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from pydantic import SecretStr
 
 
 @dataclass
@@ -33,7 +31,7 @@ class MemoryItem:
     user_id: str
     agent: str
     confidence: float = 0.5
-    metadata: Dict[str, Any] = None
+    metadata: Optional[Dict[str, Any]] = None
     
     def __post_init__(self):
         if self.metadata is None:
@@ -128,22 +126,22 @@ class ImprovedDiscordMemorySystem:
     """
     
     def __init__(self, 
-                 redis_url: str = None, 
-                 postgres_url: str = None,
-                 gemini_api_key: str = None):
+                 redis_url: Optional[str] = None, 
+                 postgres_url: Optional[str] = None,
+                 gemini_api_key: Optional[str] = None):
         # ロギング設定（最初に初期化）
         self.logger = self._setup_logging()
         
         # 環境変数から安全に取得
         self.redis_url = redis_url or os.getenv('REDIS_URL', 'redis://localhost:6379')
-        self.postgres_url = self._sanitize_postgres_url(
-            postgres_url or os.getenv('POSTGRESQL_URL', '')
-        )
+        postgres_url_env = postgres_url or os.getenv('POSTGRESQL_URL', '')
+        self.postgres_url = self._sanitize_postgres_url(postgres_url_env) if postgres_url_env else ''
         
         # Google Embeddings設定
+        api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
         self.embeddings_client = GoogleGenerativeAIEmbeddings(
             model="models/text-embedding-004",
-            google_api_key=gemini_api_key or os.getenv('GEMINI_API_KEY'),
+            google_api_key=SecretStr(api_key) if api_key else None,
             task_type="RETRIEVAL_DOCUMENT"
         )
         
@@ -212,6 +210,8 @@ class ImprovedDiscordMemorySystem:
         """Memory System初期化（改善版）"""
         try:
             # Redis接続プール設定強化
+            if not self.redis_url:
+                raise MemorySystemConnectionError("Redis URL not provided")
             self.redis_pool = redis.ConnectionPool.from_url(
                 self.redis_url,
                 max_connections=int(os.getenv('REDIS_MAX_CONNECTIONS', '10')),
@@ -225,7 +225,8 @@ class ImprovedDiscordMemorySystem:
             self.redis = redis.Redis(connection_pool=self.redis_pool)
             
             # Redis接続確認
-            await self.redis.ping()
+            if self.redis:
+                await self.redis.ping()
             self.health_status.redis_connected = True
             self.logger.info("✅ Redis Hot Memory connected with connection pool")
             
@@ -293,17 +294,19 @@ class ImprovedDiscordMemorySystem:
         """Hot Memory読み込み（リトライ機能付き）"""
         try:
             if not self.redis:
-                if not await self.initialize():
-                    return []
+                raise RedisConnectionError("Redis connection not available")
             
             redis_key = f"channel:{channel_id}:messages"
             
             # パイプライン使用で効率化 + パフォーマンス計測
             start_time = asyncio.get_event_loop().time()
+            if not self.redis:
+                raise RedisConnectionError("Redis not connected")
             async with self.redis.pipeline(transaction=False) as pipe:
                 pipe.lrange(redis_key, 0, self.hot_memory_limit - 1)
                 pipe.expire(redis_key, self.hot_memory_ttl)
-                results = await pipe.execute()
+                pipe_results = await pipe.execute()
+                results = pipe_results if pipe_results else []
             elapsed_time = asyncio.get_event_loop().time() - start_time
             
             messages = results[0] if results else []
@@ -336,16 +339,16 @@ class ImprovedDiscordMemorySystem:
             self.health_status.redis_connected = False
             raise RedisConnectionError(f"Redis read failed: {e}")
     
-    async def load_cold_memory(self, query: str, channel_id: str = None) -> List[Dict[str, Any]]:
+    async def load_cold_memory(self, query: str, channel_id: Optional[str] = None) -> List[Dict[str, Any]]:
         """Cold Memory検索（unified_memoriesテーブル使用）"""
         try:
             if not self.postgres_pool:
-                return []
+                raise PostgreSQLConnectionError("PostgreSQL pool not available")
             
             # Embedding生成
             query_embedding = await self.generate_embedding_with_rate_limit(query)
             if not query_embedding:
-                return []
+                raise EmbeddingError(f"Failed to generate embedding for query: {query}")
             
             # unified_memoriesテーブル検索実行（パフォーマンス最適化）
             search_start = asyncio.get_event_loop().time()
@@ -404,9 +407,9 @@ class ImprovedDiscordMemorySystem:
         
         except Exception as e:
             self.logger.error(f"Cold Memory load failed: {e}")
-            return []
+            raise MemorySystemError(f"Cold memory search failed: {e}")
     
-    async def migrate_to_cold_memory(self, channel_id: str, batch_size: int = None) -> Dict[str, Any]:
+    async def migrate_to_cold_memory(self, channel_id: str, batch_size: Optional[int] = None) -> Dict[str, Any]:
         """ホットメモリからコールドメモリへの移行 - 最適化版"""
         if batch_size is None:
             batch_size = self.migration_batch_size
@@ -426,7 +429,8 @@ class ImprovedDiscordMemorySystem:
             redis_key = f"channel:{channel_id}:messages"
             
             # Redisからホットメモリ読み込み
-            messages = await self.redis.lrange(redis_key, 0, batch_size - 1)
+            messages_result = await self.redis.lrange(redis_key, 0, batch_size - 1)
+            messages = messages_result if messages_result else []
             
             if not messages:
                 return {
@@ -460,7 +464,7 @@ class ImprovedDiscordMemorySystem:
                                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                                     """,
                                         0,  # guild_id
-                                        int(channel_id),
+                                        int(channel_id) if channel_id.isdigit() else 0,
                                         0,  # user_id  
                                         0,  # message_id
                                         content,
@@ -550,15 +554,13 @@ class ImprovedDiscordMemorySystem:
             # PostgreSQL更新用データ準備
             messages = conversation_data.get('messages', [])
             if not messages:
-                # Redisのみ更新
-                return await self._update_redis_only(redis_key, memory_entry, conversation_data)
+                raise ValueError("No messages provided for memory update")
             
             latest_message = messages[-1] if messages else None
             user_content = getattr(latest_message, 'content', '') if latest_message else ''
             
             if not user_content:
-                # Redisのみ更新
-                return await self._update_redis_only(redis_key, memory_entry, conversation_data)
+                raise ValueError("No user content available for memory update")
             
             # Embedding生成（パフォーマンス計測付き）
             content_embedding = await self._measure_performance(
@@ -628,10 +630,11 @@ class ImprovedDiscordMemorySystem:
             truncated_text = text[:max_chars] if len(text) > max_chars else text
             
             # 非同期実行
-            embedding = await asyncio.to_thread(
-                self.embeddings_client.embed_query, 
-                truncated_text
-            )
+            embedding_result = self.embeddings_client.embed_query(truncated_text)
+            if asyncio.iscoroutine(embedding_result):
+                embedding = await embedding_result
+            else:
+                embedding = embedding_result
             
             return embedding
             
@@ -761,19 +764,13 @@ class ImprovedDiscordMemorySystem:
     
     async def store_task(self, task_key: str, task_data: Dict[str, Any]) -> bool:
         """タスクデータをRedisに保存"""
-        try:
-            if not self.redis:
-                self.logger.warning("Redis not available, cannot store task")
-                return False
+        if not self.redis:
+            raise RedisConnectionError("Redis not available for task storage")
                 
-            task_json = json.dumps(task_data, ensure_ascii=False, default=str)
-            await self.redis.setex(task_key, 86400, task_json)  # 24時間保持
-            self.logger.info(f"Task stored: {task_key}")
-            return True
-            
-        except Exception as e:
-            self.logger.error(f"Task storage failed: {e}")
-            return False
+        task_json = json.dumps(task_data, ensure_ascii=False, default=str)
+        await self.redis.setex(task_key, 86400, task_json)  # 24時間保持
+        self.logger.info(f"Task stored: {task_key}")
+        return True
     
     async def cleanup(self) -> None:
         """リソース正常終了（最適化版）"""
@@ -830,10 +827,6 @@ class ImprovedDiscordMemorySystem:
         try:
             result = await func(*args, **kwargs)
             success = True
-        except Exception as e:
-            result = None
-            success = False
-            raise
         finally:
             elapsed_time = asyncio.get_event_loop().time() - start_time
             memory_after = psutil.Process().memory_info().rss if psutil else 0
@@ -847,13 +840,7 @@ class ImprovedDiscordMemorySystem:
         
         return result
     
-    async def _execute_with_fallback(self, primary_func, fallback_func, *args, **kwargs):
-        """戦略的フォールバック処理"""
-        try:
-            return await primary_func(*args, **kwargs)
-        except (redis.RedisError, asyncpg.PostgresError, ConnectionError, OSError) as e:
-            self.logger.warning(f"Primary operation failed, using fallback: {e}")
-            return await fallback_func(*args, **kwargs)
+    # 戦略的フォールバック処理を完全削除（Fail-fast原則適用）
     
     async def _process_large_batch(self, items: List[Any], batch_size: int = 100):
         """大きなバッチ処理の分割処理"""
@@ -876,6 +863,8 @@ class ImprovedDiscordMemorySystem:
     async def _update_redis_only(self, redis_key: str, memory_entry: Dict[str, Any], conversation_data: Dict[str, Any]) -> bool:
         """頂級Redisのみ更新処理"""
         try:
+            if not self.redis:
+                return False
             ttl = conversation_data.get('custom_ttl', self.hot_memory_ttl)
             async with self.redis.pipeline(transaction=True) as pipe:
                 pipe.lpush(redis_key, json.dumps(memory_entry, default=str))
@@ -892,6 +881,8 @@ class ImprovedDiscordMemorySystem:
                                          user_content: str, content_embedding: List[float]) -> None:
         """原子的トランザクション実行"""
         # Redis更新
+        if not self.redis:
+            raise RedisConnectionError("Redis not connected")
         async with self.redis.pipeline(transaction=True) as pipe:
             pipe.lpush(redis_key, json.dumps(memory_entry, default=str))
             pipe.ltrim(redis_key, 0, self.hot_memory_limit - 1)
@@ -899,7 +890,7 @@ class ImprovedDiscordMemorySystem:
             await pipe.execute()
         
         # PostgreSQL更新（Embeddingが生成できた場合のみ）
-        if content_embedding:
+        if content_embedding and self.postgres_pool:
             async with self.postgres_pool.acquire() as conn:
                 async with conn.transaction():
                     await conn.execute("""
@@ -910,9 +901,9 @@ class ImprovedDiscordMemorySystem:
                         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                     """,
                         int(conversation_data.get('guild_id', 0)),
-                        int(conversation_data.get('channel_id')),
-                        int(conversation_data.get('user_id', 0)),
-                        int(conversation_data.get('message_id', 0)),
+                        int(conversation_data.get('channel_id', 0)) if str(conversation_data.get('channel_id', '')).isdigit() else 0,
+                        int(conversation_data.get('user_id', 0)) if str(conversation_data.get('user_id', 0)).isdigit() else 0,
+                        int(conversation_data.get('message_id', 0)) if str(conversation_data.get('message_id', 0)).isdigit() else 0,
                         user_content,
                         conversation_data.get('selected_agent', 'unknown'),
                         conversation_data.get('confidence', 0.5),
@@ -924,8 +915,13 @@ class ImprovedDiscordMemorySystem:
 # Factory関数
 def create_improved_memory_system() -> ImprovedDiscordMemorySystem:
     """改善版Memory System生成"""
+    # 環境変数は None の可能性があるため、デフォルト値で初期化
+    redis_url = os.getenv('REDIS_URL') or 'redis://localhost:6379'
+    postgres_url = os.getenv('POSTGRESQL_URL') or ''
+    gemini_api_key = os.getenv('GEMINI_API_KEY') or ''
+    
     return ImprovedDiscordMemorySystem(
-        redis_url=os.getenv('REDIS_URL'),
-        postgres_url=os.getenv('POSTGRESQL_URL'),
-        gemini_api_key=os.getenv('GEMINI_API_KEY')
+        redis_url=redis_url,
+        postgres_url=postgres_url,
+        gemini_api_key=gemini_api_key
     )

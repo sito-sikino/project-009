@@ -8,6 +8,7 @@ import asyncio
 import logging
 from typing import List, Optional, Dict, Any
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+from pydantic import SecretStr
 
 
 class GoogleEmbeddingClient:
@@ -22,7 +23,7 @@ class GoogleEmbeddingClient:
     - エラーハンドリング・リトライ機能
     """
 
-    def __init__(self, api_key: str = None, task_type: str = "RETRIEVAL_DOCUMENT"):
+    def __init__(self, api_key: Optional[str] = None, task_type: str = "RETRIEVAL_DOCUMENT"):
         """
         クライアント初期化
 
@@ -39,7 +40,7 @@ class GoogleEmbeddingClient:
         # GoogleGenerativeAIEmbeddings初期化
         self.client = GoogleGenerativeAIEmbeddings(
             model="text-embedding-004",
-            google_api_key=self.api_key,
+            google_api_key=SecretStr(self.api_key) if self.api_key else None,
             task_type=self.task_type
         )
 
@@ -98,7 +99,7 @@ class GoogleEmbeddingClient:
             self.logger.error(f"Batch size validation failed: {len(texts)} > {batch_size}")
             raise ValueError(f"Batch size exceeds limit: {len(texts)} > {batch_size}")
 
-        invalid_items = []
+        invalid_items: List[str] = []
         for i, text in enumerate(texts):
             if not isinstance(text, str):
                 invalid_items.append(f"index {i}: {type(text)}")
@@ -116,11 +117,16 @@ class GoogleEmbeddingClient:
             self.logger.debug("Attempting batch processing with aembed_documents")
             batch_client = GoogleGenerativeAIEmbeddings(
                 model="text-embedding-004",
-                google_api_key=self.api_key,
+                google_api_key=SecretStr(self.api_key) if self.api_key else None,
                 task_type="RETRIEVAL_DOCUMENT"
             )
 
-            embeddings = await asyncio.to_thread(batch_client.aembed_documents, texts)
+            # aembed_documents は coroutine を返すため、直接awaitする
+            embeddings_result = batch_client.aembed_documents(texts)
+            if asyncio.iscoroutine(embeddings_result):
+                embeddings = await embeddings_result
+            else:
+                embeddings = embeddings_result
 
             elapsed_time = asyncio.get_event_loop().time() - start_time
             self.logger.info(f"Batch embedding completed successfully in {elapsed_time:.2f}s")
@@ -131,35 +137,8 @@ class GoogleEmbeddingClient:
             return embeddings
 
         except Exception as e:
-            self.logger.warning(f"Batch processing failed, falling back to individual processing: {e}")
-
-            results = []
-            failed_count = 0
-
-            for i, text in enumerate(texts):
-                try:
-                    embedding = await self._generate_embedding_with_retry(text, "RETRIEVAL_DOCUMENT")
-                    results.append(embedding)
-
-                    if embedding is None:
-                        failed_count += 1
-                        self.logger.warning(f"Failed to generate embedding for item {i}")
-
-                except Exception as item_error:
-                    self.logger.error(f"Individual processing failed for item {i}: {item_error}")
-                    results.append(None)
-                    failed_count += 1
-
-                if delay_per_item > 0:
-                    await asyncio.sleep(delay_per_item)
-
-            elapsed_time = asyncio.get_event_loop().time() - start_time
-            success_count = len(texts) - failed_count
-            self.logger.info(
-                f"Fallback processing completed: {success_count}/{len(texts)} successful in {elapsed_time:.2f}s"
-            )
-
-            return results
+            self.logger.error(f"Batch embedding processing failed: {e}")
+            raise RuntimeError(f"Batch embedding generation failed: {e}")
 
     async def _generate_embedding_with_retry(self, text: str, task_type: str) -> Optional[List[float]]:
         """
@@ -173,7 +152,7 @@ class GoogleEmbeddingClient:
             List[float]: 768次元embedding
         """
         if not text.strip():
-            return None
+            raise ValueError("Empty text provided for embedding generation")
 
         # テキスト長制限
         truncated_text = self._truncate_text(text)
@@ -182,7 +161,7 @@ class GoogleEmbeddingClient:
         if task_type != self.task_type:
             temp_client = GoogleGenerativeAIEmbeddings(
                 model="text-embedding-004",
-                google_api_key=self.api_key,
+                google_api_key=SecretStr(self.api_key) if self.api_key else None,
                 task_type=task_type
             )
         else:
@@ -197,12 +176,11 @@ class GoogleEmbeddingClient:
                 )
 
                 # 768次元確認
-                if len(embedding) == 768:
-                    self.logger.debug(f"Embedding generated successfully: {len(embedding)} dimensions")
-                    return embedding
-                else:
-                    self.logger.warning(f"Unexpected embedding dimension: {len(embedding)}")
-                    return embedding  # 異なる次元でも返す
+                if len(embedding) != 768:
+                    raise ValueError(f"Invalid embedding dimension: {len(embedding)}, expected 768")
+                
+                self.logger.debug(f"Embedding generated successfully: {len(embedding)} dimensions")
+                return embedding
 
             except Exception as e:
                 error_type = type(e).__name__
@@ -216,9 +194,9 @@ class GoogleEmbeddingClient:
                     await asyncio.sleep(backoff_delay)
                 else:
                     self.logger.error(f"All {self.max_retries} embedding generation attempts failed: {e}")
-                    return None
+                    raise RuntimeError(f"Embedding generation failed after {self.max_retries} attempts: {e}")
 
-        return None
+        raise RuntimeError("Embedding generation failed unexpectedly")
 
     def _truncate_text(self, text: str) -> str:
         """
@@ -261,7 +239,7 @@ class GoogleEmbeddingClient:
 
 
 # Factory Function
-def create_embedding_client(api_key: str = None, task_type: str = "RETRIEVAL_DOCUMENT") -> GoogleEmbeddingClient:
+def create_embedding_client(api_key: Optional[str] = None, task_type: str = "RETRIEVAL_DOCUMENT") -> GoogleEmbeddingClient:
     """
     GoogleEmbeddingClient生成
 
