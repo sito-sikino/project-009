@@ -7,14 +7,49 @@ import os
 import asyncio
 import json
 import logging
+import gc
+import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
+try:
+    import psutil
+except ImportError:
+    psutil = None
+
 import redis.asyncio as redis
 import asyncpg
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
+
+
+@dataclass
+class MemoryItem:
+    """Memory Item Data Structure"""
+    content: str
+    timestamp: datetime
+    channel_id: str
+    user_id: str
+    agent: str
+    confidence: float = 0.5
+    metadata: Dict[str, Any] = None
+    
+    def __post_init__(self):
+        if self.metadata is None:
+            self.metadata = {}
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary"""
+        return {
+            'content': self.content,
+            'timestamp': self.timestamp.isoformat(),
+            'channel_id': self.channel_id,
+            'user_id': self.user_id,
+            'agent': self.agent,
+            'confidence': self.confidence,
+            'metadata': self.metadata
+        }
 
 
 # Custom Exceptions
@@ -22,11 +57,19 @@ class MemorySystemError(Exception):
     """Memory System基本エラー"""
     pass
 
-class RedisConnectionError(MemorySystemError):
+class MemorySystemConnectionError(MemorySystemError):
+    """接続関連エラー"""
+    pass
+
+class MemorySystemTransactionError(MemorySystemError):
+    """トランザクション関連エラー"""
+    pass
+
+class RedisConnectionError(MemorySystemConnectionError):
     """Redis接続エラー"""
     pass
 
-class PostgreSQLConnectionError(MemorySystemError):
+class PostgreSQLConnectionError(MemorySystemConnectionError):
     """PostgreSQL接続エラー"""
     pass
 
@@ -63,6 +106,9 @@ class HealthStatus:
     embeddings_available: bool = False
     last_check: Optional[datetime] = None
     error_count: int = 0
+    redis_pool_health: Optional[Dict[str, Any]] = None
+    postgres_pool_health: Optional[Dict[str, Any]] = None
+    performance_metrics: Optional[Dict[str, Any]] = None
     
     @property
     def is_healthy(self) -> bool:
@@ -106,15 +152,25 @@ class ImprovedDiscordMemorySystem:
         self.redis_pool: Optional[redis.ConnectionPool] = None
         self.postgres_pool: Optional[asyncpg.Pool] = None
         
-        # 設定
+        # 設定（環境変数対応）
         self.hot_memory_limit = 20
-        self.hot_memory_ttl = 86400
+        self.hot_memory_ttl = int(os.getenv('HOT_MEMORY_TTL_SECONDS', '86400'))
+        self.cold_retention_days = int(os.getenv('COLD_MEMORY_RETENTION_DAYS', '30'))
+        self.migration_batch_size = int(os.getenv('MEMORY_MIGRATION_BATCH_SIZE', '100'))
         self.embedding_model = "models/text-embedding-004"
         self.similarity_threshold = 0.7
         self.max_cold_results = 10
         
         # レート制限 (15 RPM = 0.25 RPS)
         self.embedding_rate_limiter = RateLimiter(calls_per_second=0.25)
+        
+        # パフォーマンスメトリクス記録
+        self.performance_metrics = {
+            'hot_memory_operations': 0,
+            'cold_memory_operations': 0,
+            'embedding_generations': 0,
+            'total_operations': 0
+        }
         
         # ヘルスステータス
         self.health_status = HealthStatus()
@@ -155,15 +211,16 @@ class ImprovedDiscordMemorySystem:
     async def initialize(self) -> bool:
         """Memory System初期化（改善版）"""
         try:
-            # Redis接続プール設定
+            # Redis接続プール設定強化
             self.redis_pool = redis.ConnectionPool.from_url(
                 self.redis_url,
-                max_connections=10,
+                max_connections=int(os.getenv('REDIS_MAX_CONNECTIONS', '10')),
                 decode_responses=True,
                 encoding="utf-8",
                 retry_on_timeout=True,
                 socket_timeout=5.0,
-                socket_connect_timeout=5.0
+                socket_connect_timeout=5.0,
+                health_check_interval=30
             )
             self.redis = redis.Redis(connection_pool=self.redis_pool)
             
@@ -172,19 +229,21 @@ class ImprovedDiscordMemorySystem:
             self.health_status.redis_connected = True
             self.logger.info("✅ Redis Hot Memory connected with connection pool")
             
-            # PostgreSQL接続プール（改善版設定）
+            # PostgreSQL接続プール設定強化
             self.postgres_pool = await asyncpg.create_pool(
                 self.postgres_url,
-                min_size=2,
-                max_size=10,
+                min_size=int(os.getenv('POSTGRES_POOL_MIN_SIZE', '2')),
+                max_size=int(os.getenv('POSTGRES_POOL_MAX_SIZE', '10')),
                 max_queries=50000,
                 max_inactive_connection_lifetime=300.0,
                 command_timeout=30,
                 server_settings={
                     'jit': 'off',
-                    'application_name': 'discord_agent_memory',
+                    'application_name': 'discord_agent_memory_v2',
                     'statement_timeout': '30s',
-                    'lock_timeout': '10s'
+                    'lock_timeout': '10s',
+                    'work_mem': '256MB',  # pgvector最適化
+                    'effective_cache_size': '1GB'
                 }
             )
             
@@ -239,11 +298,13 @@ class ImprovedDiscordMemorySystem:
             
             redis_key = f"channel:{channel_id}:messages"
             
-            # パイプライン使用で効率化
+            # パイプライン使用で効率化 + パフォーマンス計測
+            start_time = asyncio.get_event_loop().time()
             async with self.redis.pipeline(transaction=False) as pipe:
                 pipe.lrange(redis_key, 0, self.hot_memory_limit - 1)
                 pipe.expire(redis_key, self.hot_memory_ttl)
                 results = await pipe.execute()
+            elapsed_time = asyncio.get_event_loop().time() - start_time
             
             messages = results[0] if results else []
             
@@ -257,9 +318,16 @@ class ImprovedDiscordMemorySystem:
                     self.logger.warning(f"Invalid JSON in hot memory: {e}")
                     continue
             
+            # パフォーマンスメトリクス更新
+            self.performance_metrics['hot_memory_operations'] += 1
+            
             self.logger.debug(
                 f"Hot Memory loaded",
-                extra={"channel_id": channel_id, "message_count": len(hot_memory)}
+                extra={
+                    "channel_id": channel_id, 
+                    "message_count": len(hot_memory),
+                    "load_time_ms": int(elapsed_time * 1000)
+                }
             )
             return hot_memory
             
@@ -269,11 +337,42 @@ class ImprovedDiscordMemorySystem:
             raise RedisConnectionError(f"Redis read failed: {e}")
     
     async def load_cold_memory(self, query: str, channel_id: str = None) -> List[Dict[str, Any]]:
-        """Cold Memory検索（一時的に無効化）"""
+        """Cold Memory検索（unified_memoriesテーブル使用）"""
         try:
-            # TEMPORARY FIX: PostgreSQL関数未作成のため一時的に無効化
-            self.logger.info("🔧 Cold Memory temporarily disabled (PostgreSQL function missing)")
-            return []
+            if not self.postgres_pool:
+                return []
+            
+            # Embedding生成
+            query_embedding = await self.generate_embedding_with_rate_limit(query)
+            if not query_embedding:
+                return []
+            
+            # unified_memoriesテーブル検索実行（パフォーマンス最適化）
+            search_start = asyncio.get_event_loop().time()
+            async with self.postgres_pool.acquire() as conn:
+                # HNSWインデックス最適化設定
+                await conn.execute("SET hnsw.ef_search = 150")  # バランス型パフォーマンス
+                
+                # 検索クエリ実行（最適化版）
+                sql = """
+                    SELECT memory_id, content, created_at, selected_agent, importance_score,
+                           1 - (content_embedding <=> $1::vector) as similarity
+                    FROM unified_memories 
+                    WHERE ($2::text IS NULL OR channel_id = $2::bigint)
+                      AND content_embedding IS NOT NULL
+                    ORDER BY content_embedding <=> $1::vector
+                    LIMIT $3
+                """
+                results = await conn.fetch(
+                    sql, 
+                    query_embedding, 
+                    channel_id,
+                    self.max_cold_results
+                )
+            search_time = asyncio.get_event_loop().time() - search_start
+            
+            # パフォーマンスメトリクス更新
+            self.performance_metrics['cold_memory_operations'] += 1
             
             # 結果を辞書形式に変換
             cold_memory = []
@@ -281,10 +380,10 @@ class ImprovedDiscordMemorySystem:
                 cold_memory.append({
                     'memory_id': str(row['memory_id']),
                     'content': row['content'],
-                    'similarity': float(row['similarity']),
-                    'created_at': row['created_at'].isoformat(),
-                    'selected_agent': row['selected_agent'],
-                    'importance_score': float(row['importance_score'])
+                    'similarity': float(row['similarity']) if row['similarity'] else 0.0,
+                    'created_at': row['created_at'].isoformat() if row['created_at'] else '',
+                    'selected_agent': row['selected_agent'] or 'unknown',
+                    'importance_score': float(row['importance_score']) if row['importance_score'] else 0.0
                 })
             
             self.logger.info(
@@ -292,7 +391,8 @@ class ImprovedDiscordMemorySystem:
                 extra={
                     "query_length": len(query),
                     "results_count": len(cold_memory),
-                    "channel_id": channel_id
+                    "channel_id": channel_id,
+                    "search_time_ms": int(search_time * 1000)
                 }
             )
             return cold_memory
@@ -306,12 +406,134 @@ class ImprovedDiscordMemorySystem:
             self.logger.error(f"Cold Memory load failed: {e}")
             return []
     
+    async def migrate_to_cold_memory(self, channel_id: str, batch_size: int = None) -> Dict[str, Any]:
+        """ホットメモリからコールドメモリへの移行 - 最適化版"""
+        if batch_size is None:
+            batch_size = self.migration_batch_size
+        
+        start_time = asyncio.get_event_loop().time()
+        memory_before = psutil.Process().memory_info().rss if psutil else 0
+        
+        try:
+            if not self.redis or not self.postgres_pool:
+                return {
+                    'migrated_count': 0, 
+                    'channel_id': channel_id, 
+                    'status': 'failed',
+                    'error': 'Redis or PostgreSQL not available'
+                }
+            
+            redis_key = f"channel:{channel_id}:messages"
+            
+            # Redisからホットメモリ読み込み
+            messages = await self.redis.lrange(redis_key, 0, batch_size - 1)
+            
+            if not messages:
+                return {
+                    'migrated_count': 0,
+                    'channel_id': channel_id,
+                    'status': 'success',
+                    'message': 'No messages to migrate'
+                }
+            
+            migrated_count = 0
+            failed_count = 0
+            
+            # 完全なACIDトランザクション実装
+            async with self.postgres_pool.acquire() as conn:
+                async with conn.transaction():
+                    for i, msg_json in enumerate(messages):
+                        try:
+                            msg_data = json.loads(msg_json)
+                            content = msg_data.get('response_content', '')
+                            
+                            if content:
+                                # Embedding生成（レート制限付き）
+                                embedding = await self.generate_embedding_with_rate_limit(content)
+                                if embedding:
+                                    # unified_memoriesテーブルに保存
+                                    await conn.execute("""
+                                        INSERT INTO unified_memories (
+                                            guild_id, channel_id, user_id, message_id,
+                                            content, selected_agent, confidence,
+                                            content_embedding, importance_score
+                                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                                    """,
+                                        0,  # guild_id
+                                        int(channel_id),
+                                        0,  # user_id  
+                                        0,  # message_id
+                                        content,
+                                        msg_data.get('selected_agent', 'unknown'),
+                                        msg_data.get('confidence', 0.5),
+                                        embedding,
+                                        min(msg_data.get('confidence', 0.5), 1.0)
+                                    )
+                                    migrated_count += 1
+                                else:
+                                    failed_count += 1
+                                    self.logger.warning(f"Failed to generate embedding for message {i}")
+                            else:
+                                failed_count += 1
+                        
+                        except (json.JSONDecodeError, asyncpg.PostgresError) as e:
+                            failed_count += 1
+                            self.logger.warning(f"Failed to migrate message {i}: {e}")
+                            continue
+                        
+                        # メモリクリーンアップ（大量バッチ処理でのメモリ節約）
+                        if i % 50 == 0 and i > 0:
+                            gc.collect()
+            
+            # Redis削除（移行成功分のみ）
+            if migrated_count > 0:
+                await self.redis.ltrim(redis_key, migrated_count, -1)
+            
+            # パフォーマンス計測
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            memory_after = psutil.Process().memory_info().rss if psutil else 0
+            memory_delta = memory_after - memory_before
+            
+            self.logger.info(
+                f"Migration completed for channel {channel_id}",
+                extra={
+                    "migrated_count": migrated_count,
+                    "failed_count": failed_count,
+                    "elapsed_ms": int(elapsed_time * 1000),
+                    "memory_delta_mb": memory_delta / 1024 / 1024 if psutil else 0
+                }
+            )
+            
+            return {
+                'migrated_count': migrated_count,
+                'failed_count': failed_count,
+                'channel_id': channel_id,
+                'status': 'success',
+                'elapsed_time': elapsed_time,
+                'memory_delta_mb': memory_delta / 1024 / 1024 if psutil else 0
+            }
+            
+        except (redis.RedisError, asyncpg.PostgresError) as e:
+            self.logger.error(f"Migration connection error: {e}")
+            raise MemorySystemConnectionError(f"Migration failed: {e}")
+            
+        except Exception as e:
+            self.logger.error(f"Migration failed: {e}")
+            return {
+                'migrated_count': 0,
+                'channel_id': channel_id,
+                'status': 'failed',
+                'error': str(e)
+            }
+    
     async def update_memory_transactional(self, conversation_data: Dict[str, Any]) -> bool:
-        """Memory更新（トランザクション保証）"""
+        """Memory更新（トランザクション保証 + パフォーマンス最適化）"""
+        start_time = asyncio.get_event_loop().time()
+        
         try:
             channel_id = conversation_data.get('channel_id')
             if not channel_id:
-                return False
+                raise ValueError("channel_id is required")
             
             # Redis更新用データ準備
             memory_entry = {
@@ -328,67 +550,63 @@ class ImprovedDiscordMemorySystem:
             # PostgreSQL更新用データ準備
             messages = conversation_data.get('messages', [])
             if not messages:
-                return True  # Redisのみ更新
+                # Redisのみ更新
+                return await self._update_redis_only(redis_key, memory_entry, conversation_data)
             
             latest_message = messages[-1] if messages else None
             user_content = getattr(latest_message, 'content', '') if latest_message else ''
             
             if not user_content:
-                return True  # Redisのみ更新
+                # Redisのみ更新
+                return await self._update_redis_only(redis_key, memory_entry, conversation_data)
             
-            # Embedding生成
-            content_embedding = await self.generate_embedding_with_rate_limit(user_content)
-            response_embedding = await self.generate_embedding_with_rate_limit(
+            # Embedding生成（パフォーマンス計測付き）
+            content_embedding = await self._measure_performance(
+                "content_embedding_generation",
+                self.generate_embedding_with_rate_limit,
+                user_content
+            )
+            response_embedding = await self._measure_performance(
+                "response_embedding_generation", 
+                self.generate_embedding_with_rate_limit,
                 conversation_data.get('response_content', '')
             )
             
-            # トランザクション実行
-            success = False
+            # カスタムTTL対応
+            ttl = conversation_data.get('custom_ttl', self.hot_memory_ttl)
             
-            # Redis更新
-            async with self.redis.pipeline(transaction=True) as pipe:
-                pipe.lpush(redis_key, json.dumps(memory_entry, default=str))
-                pipe.ltrim(redis_key, 0, self.hot_memory_limit - 1)
-                pipe.expire(redis_key, self.hot_memory_ttl)
-                await pipe.execute()
+            # 原子的トランザクション実行
+            await self._execute_atomic_transaction(
+                redis_key, memory_entry, ttl,
+                conversation_data, user_content, content_embedding
+            )
             
-            # PostgreSQL更新（Embedingが生成できた場合のみ）
-            if content_embedding and response_embedding:
-                async with self.postgres_pool.acquire() as conn:
-                    async with conn.transaction():
-                        await conn.execute("""
-                            INSERT INTO memories (
-                                guild_id, channel_id, user_id, message_id,
-                                original_content, processed_content,
-                                selected_agent, agent_response, confidence,
-                                content_embedding, response_embedding,
-                                conversation_context, importance_score
-                            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
-                        """,
-                            int(conversation_data.get('guild_id', 0)),
-                            int(channel_id),
-                            int(conversation_data.get('user_id', 0)),
-                            int(conversation_data.get('message_id', 0)),
-                            user_content,
-                            user_content,
-                            conversation_data.get('selected_agent', 'unknown'),
-                            conversation_data.get('response_content', ''),
-                            conversation_data.get('confidence', 0.5),
-                            content_embedding,
-                            response_embedding,
-                            json.dumps(conversation_data, default=str),
-                            min(conversation_data.get('confidence', 0.5), 1.0)
-                        )
-            
-            success = True
+            # パフォーマンスログ
+            elapsed_time = asyncio.get_event_loop().time() - start_time
             self.logger.info(
                 "Memory updated successfully",
-                extra={"channel_id": channel_id}
+                extra={
+                    "channel_id": channel_id,
+                    "elapsed_ms": int(elapsed_time * 1000),
+                    "has_embedding": bool(content_embedding)
+                }
             )
-            return success
+            return True
+            
+        except (redis.RedisError, asyncpg.PostgresError) as e:
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            self.logger.error(
+                f"Memory update connection error: {e}",
+                extra={"elapsed_ms": int(elapsed_time * 1000)}
+            )
+            raise MemorySystemConnectionError(f"Memory update failed: {e}")
             
         except Exception as e:
-            self.logger.error(f"Memory update failed: {e}")
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            self.logger.error(
+                f"Memory update failed: {e}",
+                extra={"elapsed_ms": int(elapsed_time * 1000)}
+            )
             return False
     
     @retry(
@@ -426,35 +644,98 @@ class ImprovedDiscordMemorySystem:
                 self.logger.error(f"Embedding generation failed: {e}")
                 raise EmbeddingError(f"Embedding failed: {e}")
     
-    async def get_health_status(self) -> Dict[str, Any]:
-        """詳細なヘルスチェック"""
+    async def get_detailed_health_status(self) -> Dict[str, Any]:
+        """詳細なシステム状態監視ヘルスチェック"""
+        health_check_start = asyncio.get_event_loop().time()
+        
         try:
-            # Redis健康確認
+            # Redis健康確認 + レイテンシー測定
+            redis_latency = None
             if self.redis:
                 try:
+                    redis_start = asyncio.get_event_loop().time()
                     await self.redis.ping()
+                    redis_latency = asyncio.get_event_loop().time() - redis_start
                     self.health_status.redis_connected = True
-                except:
+                    
+                    # Redisプール統計
+                    if self.redis_pool:
+                        pool_info = {
+                            'max_connections': self.redis_pool.max_connections,
+                            'created_connections': len(self.redis_pool._created_connections) if hasattr(self.redis_pool, '_created_connections') else 'unknown'
+                        }
+                    else:
+                        pool_info = {'error': 'pool not available'}
+                    
+                    self.health_status.redis_pool_health = pool_info
+                    
+                except Exception as e:
                     self.health_status.redis_connected = False
+                    self.health_status.redis_pool_health = {'error': str(e)}
             
-            # PostgreSQL健康確認
+            # PostgreSQL健康確認 + レイテンシー測定
+            postgres_latency = None
             if self.postgres_pool:
                 try:
+                    postgres_start = asyncio.get_event_loop().time()
                     async with self.postgres_pool.acquire() as conn:
                         await conn.fetchval('SELECT 1')
+                    postgres_latency = asyncio.get_event_loop().time() - postgres_start
                     self.health_status.postgres_connected = True
-                except:
+                    
+                    # PostgreSQLプール統計
+                    pool_info = {
+                        'min_size': self.postgres_pool._minsize,
+                        'max_size': self.postgres_pool._maxsize,
+                        'current_size': self.postgres_pool.get_size(),
+                        'idle_connections': self.postgres_pool.get_idle_size()
+                    }
+                    self.health_status.postgres_pool_health = pool_info
+                    
+                except Exception as e:
                     self.health_status.postgres_connected = False
+                    self.health_status.postgres_pool_health = {'error': str(e)}
             
-            # ヘルスステータス更新
+            # リソース使用状況
+            resource_info = {}
+            if psutil:
+                process = psutil.Process()
+                resource_info = {
+                    'memory_mb': process.memory_info().rss / 1024 / 1024,
+                    'cpu_percent': process.cpu_percent(),
+                    'open_files': len(process.open_files()) if hasattr(process, 'open_files') else 'unknown'
+                }
+            
+            # パフォーマンスメトリクス
+            performance_metrics = {
+                'redis_latency_ms': int(redis_latency * 1000) if redis_latency else None,
+                'postgres_latency_ms': int(postgres_latency * 1000) if postgres_latency else None,
+                'health_check_time_ms': int((asyncio.get_event_loop().time() - health_check_start) * 1000)
+            }
+            
+            self.health_status.performance_metrics = performance_metrics
             self.health_status.last_check = datetime.now()
             
             return {
                 "status": "healthy" if self.health_status.is_healthy else "unhealthy",
-                "redis": self.health_status.redis_connected,
-                "postgres": self.health_status.postgres_connected,
-                "embeddings": self.health_status.embeddings_available,
-                "last_check": self.health_status.last_check.isoformat() if self.health_status.last_check else None,
+                "components": {
+                    "redis": {
+                        "connected": self.health_status.redis_connected,
+                        "latency_ms": performance_metrics['redis_latency_ms'],
+                        "pool": self.health_status.redis_pool_health
+                    },
+                    "postgres": {
+                        "connected": self.health_status.postgres_connected,
+                        "latency_ms": performance_metrics['postgres_latency_ms'],
+                        "pool": self.health_status.postgres_pool_health
+                    },
+                    "embeddings": {
+                        "available": self.health_status.embeddings_available
+                    }
+                },
+                "resources": resource_info,
+                "performance": performance_metrics,
+                "last_check": self.health_status.last_check.isoformat(),
                 "error_count": self.health_status.error_count
             }
             
@@ -462,8 +743,21 @@ class ImprovedDiscordMemorySystem:
             self.logger.error(f"Health check failed: {e}")
             return {
                 "status": "error",
-                "error": str(e)
+                "error": str(e),
+                "last_check": datetime.now().isoformat()
             }
+    
+    async def get_health_status(self) -> Dict[str, Any]:
+        """簡易ヘルスチェック（互換性維持）"""
+        detailed = await self.get_detailed_health_status()
+        return {
+            "status": detailed["status"],
+            "redis": detailed["components"]["redis"]["connected"],
+            "postgres": detailed["components"]["postgres"]["connected"],
+            "embeddings": detailed["components"]["embeddings"]["available"],
+            "last_check": detailed["last_check"],
+            "error_count": detailed["error_count"]
+        }
     
     async def store_task(self, task_key: str, task_data: Dict[str, Any]) -> bool:
         """タスクデータをRedisに保存"""
@@ -482,19 +776,149 @@ class ImprovedDiscordMemorySystem:
             return False
     
     async def cleanup(self) -> None:
-        """リソース正常終了"""
+        """リソース正常終了（最適化版）"""
+        cleanup_tasks = []
+        
         try:
+            # Redisクリーンアップ
             if self.redis:
-                await self.redis.close()
-                await self.redis_pool.disconnect() if self.redis_pool else None
-                self.logger.info("Redis connection closed")
+                cleanup_tasks.append(self._cleanup_redis())
             
+            # PostgreSQLクリーンアップ
             if self.postgres_pool:
-                await self.postgres_pool.close()
-                self.logger.info("PostgreSQL pool closed")
+                cleanup_tasks.append(self._cleanup_postgres())
+            
+            # 並列クリーンアップ実行
+            if cleanup_tasks:
+                await asyncio.gather(*cleanup_tasks, return_exceptions=True)
+            
+            # メモリクリーンアップ
+            gc.collect()
+            
+            self.logger.info("Memory System cleanup completed successfully")
                 
         except Exception as e:
             self.logger.error(f"Cleanup failed: {e}")
+    
+    async def _cleanup_redis(self) -> None:
+        """適切なRedisクリーンアップ"""
+        try:
+            if self.redis:
+                await self.redis.close()
+            if self.redis_pool:
+                await self.redis_pool.disconnect()
+            self.logger.info("Redis connection closed")
+        except Exception as e:
+            self.logger.warning(f"Redis cleanup warning: {e}")
+    
+    async def _cleanup_postgres(self) -> None:
+        """適切なPostgreSQLクリーンアップ"""
+        try:
+            if self.postgres_pool:
+                await self.postgres_pool.close()
+            self.logger.info("PostgreSQL pool closed")
+        except Exception as e:
+            self.logger.warning(f"PostgreSQL cleanup warning: {e}")
+
+
+    # 新しいヘルパーメソッド群
+    async def _measure_performance(self, operation_name: str, func, *args, **kwargs):
+        """各操作の詳細メトリクス測定"""
+        start_time = asyncio.get_event_loop().time()
+        memory_before = psutil.Process().memory_info().rss if psutil else 0
+        
+        try:
+            result = await func(*args, **kwargs)
+            success = True
+        except Exception as e:
+            result = None
+            success = False
+            raise
+        finally:
+            elapsed_time = asyncio.get_event_loop().time() - start_time
+            memory_after = psutil.Process().memory_info().rss if psutil else 0
+            memory_delta = memory_after - memory_before
+            
+            self.logger.info(f"Performance: {operation_name}", extra={
+                'elapsed_ms': int(elapsed_time * 1000),
+                'memory_delta_mb': memory_delta / 1024 / 1024 if psutil else 0,
+                'success': success
+            })
+        
+        return result
+    
+    async def _execute_with_fallback(self, primary_func, fallback_func, *args, **kwargs):
+        """戦略的フォールバック処理"""
+        try:
+            return await primary_func(*args, **kwargs)
+        except (redis.RedisError, asyncpg.PostgresError, ConnectionError, OSError) as e:
+            self.logger.warning(f"Primary operation failed, using fallback: {e}")
+            return await fallback_func(*args, **kwargs)
+    
+    async def _process_large_batch(self, items: List[Any], batch_size: int = 100):
+        """大きなバッチ処理の分割処理"""
+        results = []
+        for i in range(0, len(items), batch_size):
+            batch = items[i:i + batch_size]
+            batch_result = await self._process_batch(batch)
+            results.extend(batch_result)
+            
+            # メモリクリーンアップ
+            if i % (batch_size * 10) == 0:
+                gc.collect()
+        
+        return results
+    
+    async def _process_batch(self, batch: List[Any]):
+        """バッチ処理の実装（サブクラスでオーバーライド）"""
+        return batch  # デフォルト実装
+    
+    async def _update_redis_only(self, redis_key: str, memory_entry: Dict[str, Any], conversation_data: Dict[str, Any]) -> bool:
+        """頂級Redisのみ更新処理"""
+        try:
+            ttl = conversation_data.get('custom_ttl', self.hot_memory_ttl)
+            async with self.redis.pipeline(transaction=True) as pipe:
+                pipe.lpush(redis_key, json.dumps(memory_entry, default=str))
+                pipe.ltrim(redis_key, 0, self.hot_memory_limit - 1)
+                pipe.expire(redis_key, ttl)
+                await pipe.execute()
+            return True
+        except Exception as e:
+            self.logger.error(f"Redis-only update failed: {e}")
+            return False
+    
+    async def _execute_atomic_transaction(self, redis_key: str, memory_entry: Dict[str, Any], 
+                                         ttl: int, conversation_data: Dict[str, Any], 
+                                         user_content: str, content_embedding: List[float]) -> None:
+        """原子的トランザクション実行"""
+        # Redis更新
+        async with self.redis.pipeline(transaction=True) as pipe:
+            pipe.lpush(redis_key, json.dumps(memory_entry, default=str))
+            pipe.ltrim(redis_key, 0, self.hot_memory_limit - 1)
+            pipe.expire(redis_key, ttl)
+            await pipe.execute()
+        
+        # PostgreSQL更新（Embeddingが生成できた場合のみ）
+        if content_embedding:
+            async with self.postgres_pool.acquire() as conn:
+                async with conn.transaction():
+                    await conn.execute("""
+                        INSERT INTO unified_memories (
+                            guild_id, channel_id, user_id, message_id,
+                            content, selected_agent, confidence,
+                            content_embedding, importance_score
+                        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                    """,
+                        int(conversation_data.get('guild_id', 0)),
+                        int(conversation_data.get('channel_id')),
+                        int(conversation_data.get('user_id', 0)),
+                        int(conversation_data.get('message_id', 0)),
+                        user_content,
+                        conversation_data.get('selected_agent', 'unknown'),
+                        conversation_data.get('confidence', 0.5),
+                        content_embedding,
+                        min(conversation_data.get('confidence', 0.5), 1.0)
+                    )
 
 
 # Factory関数

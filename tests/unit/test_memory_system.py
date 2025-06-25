@@ -197,7 +197,7 @@ class TestDiscordMemorySystem:
         memory_system.embeddings_client = mock_embeddings_client
         
         # Mock embedding生成
-        with patch.object(memory_system, 'generate_embedding', return_value=[0.1] * 768):
+        with patch.object(memory_system, 'generate_embedding_with_rate_limit', return_value=[0.1] * 768):
             # Mock PostgreSQL応答
             mock_conn = AsyncMock()
             mock_conn.fetch = AsyncMock(return_value=[
@@ -241,7 +241,7 @@ class TestDiscordMemorySystem:
         }
         
         # Mock embedding生成
-        with patch.object(memory_system, 'generate_embedding', return_value=[0.1] * 768):
+        with patch.object(memory_system, 'generate_embedding_with_rate_limit', return_value=[0.1] * 768):
             # Mock PostgreSQL
             mock_conn = AsyncMock()
             mock_conn.execute = AsyncMock()
@@ -251,7 +251,7 @@ class TestDiscordMemorySystem:
             mock_postgres_pool.acquire = MagicMock(return_value=mock_context_manager)
             
             # ACT
-            result = await memory_system.update_memory(conversation_data)
+            result = await memory_system.update_memory_transactional(conversation_data)
             
             # ASSERT
             assert result is True
@@ -273,7 +273,7 @@ class TestDiscordMemorySystem:
         
         # ACT
         with patch('asyncio.to_thread', return_value=[0.1] * 768) as mock_to_thread:
-            result = await memory_system.generate_embedding(test_text)
+            result = await memory_system.generate_embedding_with_rate_limit(test_text)
             
             # ASSERT
             assert len(result) == 768
@@ -284,7 +284,7 @@ class TestDiscordMemorySystem:
     async def test_generate_embedding_empty_text(self, memory_system):
         """Embedding生成空テキストテスト"""
         # ACT
-        result = await memory_system.generate_embedding("")
+        result = await memory_system.generate_embedding_with_rate_limit("")
         
         # ASSERT
         assert result is None
@@ -298,7 +298,7 @@ class TestDiscordMemorySystem:
         
         # ACT
         with patch('asyncio.to_thread', return_value=[0.1] * 768) as mock_to_thread:
-            result = await memory_system.generate_embedding(long_text)
+            result = await memory_system.generate_embedding_with_rate_limit(long_text)
             
             # ASSERT
             assert result is not None
@@ -404,3 +404,99 @@ if __name__ == "__main__":
         print("✅ Memory System tests ready: DiscordMemorySystem available")
     except ImportError as e:
         print(f"❌ Memory System test requirements not met: {e}")
+
+
+class TestMemorySystemPhase2Features:
+    """Phase 2実装予定機能の失敗テスト（TDD RED段階）"""
+    
+    @pytest.mark.asyncio
+    async def test_hot_memory_ttl_environment_variable(self):
+        """HOT_MEMORY_TTL_SECONDS環境変数読み込みテスト（失敗）"""
+        with patch.dict('os.environ', {'HOT_MEMORY_TTL_SECONDS': '7200'}):
+            memory_system = DiscordMemorySystem()
+            
+            # 現在はハードコーディング86400のため、環境変数7200は反映されない（失敗）
+            assert memory_system.hot_memory_ttl == 7200  # 期待: 環境変数値、実際: 86400
+    
+    @pytest.mark.asyncio
+    async def test_migrate_to_cold_memory_method_exists(self):
+        """migrate_to_cold_memory()メソッド存在テスト（失敗）"""
+        memory_system = DiscordMemorySystem()
+        
+        # メソッドが存在しないためAttributeErrorで失敗
+        with pytest.raises(AttributeError):
+            await memory_system.migrate_to_cold_memory("test_channel", 10)
+    
+    @pytest.mark.asyncio
+    async def test_unified_memories_table_operations(self):
+        """unified_memoriesテーブル操作テスト（失敗）"""
+        memory_system = DiscordMemorySystem()
+        
+        with patch.object(memory_system, 'postgres_pool') as mock_pool:
+            mock_conn = AsyncMock()
+            mock_pool.acquire().__aenter__.return_value = mock_conn
+            mock_conn.fetch.return_value = []
+            
+            # load_cold_memory()は一時無効化でempty listを返す（失敗）
+            result = await memory_system.load_cold_memory("test query", "channel123")
+            
+            # 期待: PostgreSQL検索結果、実際: 空配列（一時無効化）
+            assert len(result) > 0  # 失敗するはず
+    
+    @pytest.mark.asyncio
+    async def test_redis_expire_with_configurable_ttl(self):
+        """Redis EXPIRE設定可能TTLテスト（失敗）"""
+        memory_system = DiscordMemorySystem()
+        
+        with patch.object(memory_system, 'redis') as mock_redis:
+            mock_redis.lpush = AsyncMock()
+            mock_redis.ltrim = AsyncMock()
+            mock_redis.expire = AsyncMock()
+            
+            # 個別TTL設定機能が存在しないため、固定TTLのみ使用（失敗）
+            conversation_data = {
+                'channel_id': '12345',
+                'messages': [{'content': 'test'}],
+                'custom_ttl': 3600  # カスタムTTL指定
+            }
+            
+            await memory_system.update_memory_transactional(conversation_data)
+            
+            # 期待: カスタムTTL(3600)使用、実際: 固定TTL(86400)使用
+            mock_redis.expire.assert_called_with('channel:12345:messages', 3600)  # 失敗するはず
+    
+    @pytest.mark.asyncio
+    async def test_postgresql_vector_search_active(self):
+        """PostgreSQL pgvector検索アクティブテスト（失敗）"""
+        memory_system = DiscordMemorySystem()
+        
+        with patch.object(memory_system, 'postgres_pool') as mock_pool:
+            mock_conn = AsyncMock()
+            mock_pool.acquire().__aenter__.return_value = mock_conn
+            mock_conn.fetch.return_value = [
+                {'memory_id': '1', 'content': 'test', 'similarity': 0.8}
+            ]
+            
+            # load_cold_memory()が実際に検索を実行することを期待（失敗）
+            result = await memory_system.load_cold_memory("test query")
+            
+            # 期待: PostgreSQL検索実行、実際: 一時無効化で空配列
+            assert len(result) == 1  # 失敗するはず（一時無効化のため）
+            assert result[0]['memory_id'] == '1'  # 失敗するはず
+    
+    @pytest.mark.asyncio
+    async def test_environment_variable_configuration_support(self):
+        """環境変数設定サポートテスト（失敗）"""
+        env_vars = {
+            'HOT_MEMORY_TTL_SECONDS': '7200',
+            'COLD_MEMORY_RETENTION_DAYS': '60',
+            'MEMORY_MIGRATION_BATCH_SIZE': '200'
+        }
+        
+        with patch.dict('os.environ', env_vars):
+            memory_system = DiscordMemorySystem()
+            
+            # 環境変数読み込み機能が未実装のため失敗
+            assert memory_system.hot_memory_ttl == 7200  # 失敗: ハードコーディング値
+            assert hasattr(memory_system, 'cold_retention_days')  # 失敗: 属性未実装
+            assert hasattr(memory_system, 'migration_batch_size')  # 失敗: 属性未実装

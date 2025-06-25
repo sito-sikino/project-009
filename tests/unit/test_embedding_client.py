@@ -78,23 +78,6 @@ class TestGoogleEmbeddingClient:
             assert result == mock_embedding
             mock_embed.assert_called_once_with("test query", "RETRIEVAL_QUERY")
     
-    @pytest.mark.asyncio
-    async def test_embed_documents_success(self):
-        """文書embedding生成成功テスト"""
-        client = GoogleEmbeddingClient(api_key="test-key")
-        
-        # モック設定
-        mock_embedding1 = [0.1] * 768
-        mock_embedding2 = [0.2] * 768
-        
-        with patch.object(client, '_generate_embedding_with_retry', new_callable=AsyncMock) as mock_embed:
-            mock_embed.side_effect = [mock_embedding1, mock_embedding2]
-            
-            texts = ["doc1", "doc2"]
-            result = await client.embed_documents(texts)
-            
-            assert result == [mock_embedding1, mock_embedding2]
-            assert mock_embed.call_count == 2
     
     @pytest.mark.asyncio
     async def test_embed_semantic_similarity_success(self):
@@ -173,6 +156,55 @@ class TestGoogleEmbeddingClient:
         assert isinstance(client, GoogleEmbeddingClient)
         assert client.api_key == "test-key"
         assert client.task_type == "SEMANTIC_SIMILARITY"
+    
+    @pytest.mark.asyncio
+    async def test_embed_documents_batch_not_implemented(self):
+        client = GoogleEmbeddingClient(api_key="test-key")
+        assert hasattr(client, 'embed_documents_batch')
+        assert callable(getattr(client, 'embed_documents_batch'))
+    
+    @pytest.mark.asyncio
+    async def test_embed_documents_batch_size_limit_exceeded(self):
+        client = GoogleEmbeddingClient(api_key="test-key")
+        large_batch = [f"document {i}" for i in range(251)]
+        with pytest.raises(ValueError, match="Batch size exceeds limit"):
+            await client.embed_documents_batch(large_batch)
+    
+    @pytest.mark.asyncio
+    @patch('asyncio.sleep', new_callable=AsyncMock)
+    async def test_embed_documents_batch_rate_limit_compliance(self, mock_sleep):
+        client = GoogleEmbeddingClient(api_key="test-key")
+        rate_test_batch = [f"rate test doc {i}" for i in range(16)]
+        
+        with patch.object(client, '_generate_embedding_with_retry', return_value=[0.1] * 768):
+            await client.embed_documents_batch(rate_test_batch)
+        
+        assert mock_sleep.called
+    
+    @pytest.mark.asyncio
+    async def test_embed_documents_batch_empty_list(self):
+        client = GoogleEmbeddingClient(api_key="test-key")
+        empty_batch = []
+        result = await client.embed_documents_batch(empty_batch)
+        assert result == []
+    
+    @pytest.mark.asyncio
+    async def test_embed_documents_batch_validation_errors(self):
+        client = GoogleEmbeddingClient(api_key="test-key")
+        invalid_batch = ["valid doc", 123, None, "another doc"]
+        with pytest.raises(TypeError, match="not a string"):
+            await client.embed_documents_batch(invalid_batch)
+    
+    @pytest.mark.asyncio
+    @patch('asyncio.to_thread')
+    async def test_embed_documents_batch_max_valid_size(self, mock_to_thread):
+        client = GoogleEmbeddingClient(api_key="test-key")
+        max_valid_batch = [f"document {i}" for i in range(250)]
+        mock_to_thread.return_value = [[0.1] * 768] * 250
+        
+        result = await client.embed_documents_batch(max_valid_batch)
+        assert len(result) == 250
+        assert mock_to_thread.called
 
 
 class TestIntegrationScenarios:
@@ -197,25 +229,3 @@ class TestIntegrationScenarios:
         assert len(result) == 768  # text-embedding-004は768次元
         assert all(isinstance(x, (int, float)) for x in result)
     
-    @pytest.mark.asyncio
-    @pytest.mark.integration
-    async def test_batch_embedding_generation(self):
-        """バッチembedding生成テスト"""
-        api_key = os.getenv('GEMINI_API_KEY')
-        
-        if not api_key:
-            pytest.skip("GEMINI_API_KEY not set, skipping integration test")
-        
-        client = GoogleEmbeddingClient(api_key=api_key)
-        
-        texts = [
-            "This is the first document.",
-            "This is the second document.",
-            "This is the third document."
-        ]
-        
-        results = await client.embed_documents(texts)
-        
-        assert len(results) == 3
-        assert all(result is not None for result in results)
-        assert all(len(result) == 768 for result in results)

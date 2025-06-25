@@ -49,7 +49,7 @@ class TestMemoryPerformanceBenchmarks:
         
         # 事前にテストデータ準備
         for i in range(20):  # 最大容量まで追加
-            await memory_system.update_memory({
+            await memory_system.update_memory_transactional({
                 'messages': [{'role': 'user', 'content': f'性能テストメッセージ{i}'}],
                 'selected_agent': 'performance_agent',
                 'response_content': f'性能テスト応答{i}',
@@ -114,7 +114,7 @@ class TestMemoryPerformanceBenchmarks:
             
             start_time = time.perf_counter()
             
-            result = await memory_system.update_memory(conversation_data)
+            result = await memory_system.update_memory_transactional(conversation_data)
             
             end_time = time.perf_counter()
             execution_time = end_time - start_time
@@ -228,7 +228,7 @@ class TestMemoryPerformanceBenchmarks:
             try:
                 start_time = time.perf_counter()
                 
-                embedding = await memory_system.generate_embedding(text)
+                embedding = await memory_system.generate_embedding_with_rate_limit(text)
                 
                 end_time = time.perf_counter()
                 execution_time = end_time - start_time
@@ -294,7 +294,7 @@ class TestMemorySystemScalabilityTests:
             for i in range(5):
                 # 更新操作
                 start_time = time.perf_counter()
-                await memory_system.update_memory({
+                await memory_system.update_memory_transactional({
                     'messages': [{'role': 'user', 'content': f'{channel_id}_message_{i}'}],
                     'selected_agent': 'scale_agent',
                     'response_content': f'{channel_id}_response_{i}',
@@ -358,7 +358,7 @@ class TestMemorySystemScalabilityTests:
         start_time = time.perf_counter()
         
         for i in range(1000):
-            await memory_system.update_memory({
+            await memory_system.update_memory_transactional({
                 'messages': [{'role': 'user', 'content': f'リソーステスト{i}'}],
                 'selected_agent': 'resource_agent',
                 'response_content': f'リソース応答{i}',
@@ -374,17 +374,17 @@ class TestMemorySystemScalabilityTests:
         total_processing_time = end_time - start_time
         
         # 統計確認
-        stats = await memory_system.get_memory_stats()
+        stats = await memory_system.get_health_status()
         
         # 性能要件
         assert total_processing_time < 60.0, f"大量データ処理時間目標未達: {total_processing_time:.2f}s > 60.0s"
-        assert stats['status'] == 'connected'
+        assert stats['status'] in ['healthy', 'connected']
         
         print(f"\n📊 Resource Usage Test Report:")
         print(f"   処理件数: 1000件")
         print(f"   総処理時間: {total_processing_time:.2f}s")
         print(f"   平均処理時間: {total_processing_time/1000:.4f}s/件")
-        print(f"   Hot Memory使用量: {stats['hot_memory']['total_messages']}件")
+        print(f"   システム状態: {stats['status']}")
         print(f"   ✅ リソース効率性目標達成")
         
         await memory_system.cleanup()
