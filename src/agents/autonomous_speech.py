@@ -19,15 +19,7 @@ from enum import Enum
 import os
 
 # Daily Workflow統合用import
-try:
-    from .daily_workflow import WorkflowPhase
-except ImportError:
-    # Fallback for standalone execution
-    class WorkflowPhase(Enum):
-        STANDBY = "standby"
-        PROCESSING = "processing"  # 長期記憶化・日報生成処理中
-        ACTIVE = "active"
-        FREE = "free"
+from src.core.daily_workflow import WorkflowPhase
 
 logger = logging.getLogger(__name__)
 
@@ -53,91 +45,6 @@ class SpeechEvent:
     timestamp: datetime
     probability_used: float
 
-class AgentPersonalityGenerator:
-    """エージェント個性メッセージ生成（参考データ）"""
-    
-    # 会議モード用メッセージ（/task commitトリガーなし）
-    SPECTRA_MEETING_MESSAGES = [
-        "本日の議題について話し合おう。提案があれば出してもらえる？",
-        "今日検討すべき課題や目標を整理してみる。",
-        "チームのアイデアや考えを聞かせてもらえるかな。",
-        "現在の状況や進捗について情報を共有しよう。",
-        "今後の方向性について検討したい。意見があれば聞かせて。"
-    ]
-    
-    LYNQ_MEETING_MESSAGES = [
-        "技術面での課題や検討事項があれば議論したい。",
-        "システム設計について相談事があれば話そう。",
-        "実装に向けた技術要件を整理してみる。",
-        "最近学んだ技術や手法があれば共有してもらえる？",
-        "技術的な課題の解決策を検討しよう。"
-    ]
-    
-    PAZ_MEETING_MESSAGES = [
-        "新しいアイデアやアプローチについて話し合ってみる？",
-        "UIやUXについて相談があれば聞かせて。",
-        "自由な発想でアイデアを出し合おう。",
-        "面白い企画やプロジェクトのアイデアがあれば共有してもらえる？",
-        "従来とは違うアプローチを考えてみたい。"
-    ]
-    
-    # 実務モード用メッセージ（/task commit実行後）
-    SPECTRA_WORK_MESSAGES = [
-        "今日のタスクの進捗をチェックする。詰まっているところがあれば一緒に整理しよう。",
-        "プロジェクトのリソース配分を効率化できそう。見直してみる？",
-        "今週の目標に向けて順調に進んでいる。優先順位を調整したほうが良さそうなタスクもある。",
-        "各部門の情報共有をもっとスムーズにしたい。連携方法を改善しよう。",
-        "現在のタスクの優先順位を見直したほうがいい。一緒に整理する。"
-    ]
-    
-    LYNQ_WORK_MESSAGES = [
-        "最近のシステム実装をパフォーマンスとセキュリティの観点からチェックする。気になる点があれば見直そう。",
-        "現在のアーキテクチャを最適化できそうな箇所がある。分析してみる？",
-        "実装したコードのテストカバレッジを確認したい。品質保証の観点で改善点を探す。",
-        "システムのパフォーマンス指標をチェックしてボトルネックを特定しよう。",
-        "開発プロセスで自動化できる箇所を見つけた。ツールやワークフローの改善を進める。"
-    ]
-    
-    PAZ_WORK_MESSAGES = [
-        "最近面白いアイデアがいくつか浮かんでる。小さなひらめきでも一緒に膨らませてみる？",
-        "今日何か美しいものや面白いものに出会った？創造性を刺激する体験があれば共有しよう。",
-        "解決が難しい課題があるなら発散的思考で新しい角度から攻めてみる。ブレインストーミングする？",
-        "既存の枠組みを超えた斬新なアプローチを思いついた。自由な発想で可能性を探ろう。",
-        "誰もやったことがない新しい試みに挑戦してみたい。リスクを恐れずに創造的にいく。"
-    ]
-
-    @classmethod
-    def get_random_message(cls, agent: str) -> str:
-        """エージェント別ランダムメッセージ取得（従来互換性のため実務モード）"""
-        return cls.get_work_mode_message(agent)
-    
-    @classmethod
-    def get_meeting_message(cls, agent: str) -> str:
-        """会議モード専用メッセージ取得"""
-        messages_map = {
-            "spectra": cls.SPECTRA_MEETING_MESSAGES,
-            "lynq": cls.LYNQ_MEETING_MESSAGES,
-            "paz": cls.PAZ_MEETING_MESSAGES
-        }
-        
-        if agent not in messages_map:
-            return "🤖 **会議進行** 皆さんのご意見をお聞かせください。"
-            
-        return random.choice(messages_map[agent])
-    
-    @classmethod
-    def get_work_mode_message(cls, agent: str) -> str:
-        """実務モード専用メッセージ取得"""
-        messages_map = {
-            "spectra": cls.SPECTRA_WORK_MESSAGES,
-            "lynq": cls.LYNQ_WORK_MESSAGES,
-            "paz": cls.PAZ_WORK_MESSAGES
-        }
-        
-        if agent not in messages_map:
-            return "🤖 システムからの自動メッセージです。"
-            
-        return random.choice(messages_map[agent])
 
 class AutonomousSpeechSystem:
     """LLM統合型自発発言システム - シンプル化版"""
@@ -151,14 +58,13 @@ class AutonomousSpeechSystem:
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
         
-        # 環境別設定（SystemSettingsから取得）
-        if system_settings:
-            self.speech_probability = 1.0 if system_settings.is_test else 0.33
-            self.tick_interval = system_settings.autonomous_speech_interval
-        else:
-            # フォールバック用（削除予定）
-            self.speech_probability = 1.0 if self.environment == Environment.TEST else 0.33
-            self.tick_interval = 10 if self.environment == Environment.TEST else 300
+        # 環境別設定（SystemSettings経由で必須）
+        if not system_settings:
+            raise RuntimeError("SystemSettings is required for autonomous speech configuration")
+        
+        # AppSettingsから環境設定を取得
+        self.speech_probability = 1.0 if self.environment == Environment.TEST else 0.33
+        self.tick_interval = system_settings.system.autonomous_speech_interval
         
         # 前回発言情報（LLMに渡す文脈として使用）
         self.last_speech_info = {
@@ -167,8 +73,7 @@ class AutonomousSpeechSystem:
             "timestamp": None
         }
         
-        # メッセージ生成用参考データ
-        self.personality_generator = AgentPersonalityGenerator()
+        # LLM統合メッセージ生成
         
         logger.info(f"🎙️ LLM統合型 Autonomous Speech System initialized for {self.environment.value}")
         logger.info(f"📊 Speech probability: {self.speech_probability * 100:.0f}%")
@@ -276,24 +181,13 @@ class AutonomousSpeechSystem:
             # ワークフローシステムのフェーズを取得
             workflow_phase = self.workflow_system.current_phase
             
-            # PROCESSING phase check: ワークフロー完了後は強制的にACTIVEに
-            if workflow_phase.value == "processing":
-                # 時刻ベースでフェーズ妥当性をチェック
-                hour = datetime.now().hour
-                if 7 <= hour < 20:
-                    pass
+            # Workflow system controls phase transitions - no time-based overrides
             
             logger.debug(f"🔍 Workflow phase: {workflow_phase.value}")
             return workflow_phase
         
-        # Fallback: 時刻ベース判定
-        hour = datetime.now().hour
-        if 7 <= hour < 20:
-            return WorkflowPhase.ACTIVE
-        elif hour >= 20:
-            return WorkflowPhase.FREE
-        else:
-            return WorkflowPhase.STANDBY
+        # Workflow system is required
+        raise RuntimeError("Workflow system is required but not available")
             
     def _get_available_channel(self, phase: WorkflowPhase) -> Optional[str]:
         """フェーズに応じた利用可能チャンネルID取得（詳細診断版）"""
@@ -337,13 +231,15 @@ class AutonomousSpeechSystem:
         logger.info("🔍 No channel found, returning None")
         return None
     
-    def _get_channel_name_from_id(self, channel_id: str) -> str:
-        """チャンネルIDからチャンネル名を逆引き"""
-        for name, ch_id in self.channel_ids.items():
-            if str(ch_id) == str(channel_id):
-                return name
-        # フォールバック
-        return "unknown"
+    def _get_channel_display_name(self, channel_name: str) -> str:
+        """チャンネル表示名を取得"""
+        display_names = {
+            "command_center": "command-center",
+            "lounge": "lounge",
+            "development": "development", 
+            "creation": "creation"
+        }
+        return display_names.get(channel_name, channel_name)
     
     def _get_channel_id_by_name(self, channel_name: str) -> Optional[str]:
         """チャンネル名からチャンネルIDを取得"""
@@ -423,21 +319,27 @@ class AutonomousSpeechSystem:
             
         except Exception as e:
             logger.error(f"❌ LLM統合メッセージ生成失敗: {e}")
-            # フォールバック: 既存テンプレートシステム使用
-            return self._fallback_template_generation(channel, phase)
+            return None
     
     def _create_autonomous_speech_context(self, channel: str, phase: WorkflowPhase, work_mode: bool, active_tasks: str) -> Dict[str, Any]:
         """自発発言用コンテキスト生成"""
-        # チャンネルIDから適切なチャンネル名を取得
-        channel_name = self._get_channel_name_from_id(channel)
+        # チャンネルIDからチャンネル名を特定
+        channel_name = None
+        for name, ch_id in self.channel_ids.items():
+            if str(ch_id) == channel:
+                channel_name = self._get_channel_display_name(name)
+                break
+        
+        if not channel_name:
+            channel_name = f"channel-{channel}"
         
         # 自発発言用の特別なメッセージ作成
         if work_mode:
-            context_message = f"{channel_name}チャンネルで、現在のタスク「{active_tasks}」に関連して、自発的に有益な発言をしたい。"
+            context_message = f"{channel_name}で、現在のタスク「{active_tasks}」に関連して、自発的に有益な発言をしたい。"
         elif phase.value == "active":
-            context_message = f"{channel_name}チャンネルで、会議や議論を促進するために自発的に発言したい。"
+            context_message = f"{channel_name}で、会議や議論を促進するために自発的に発言したい。"
         else:
-            context_message = f"{channel_name}チャンネルで、チームとのコミュニケーションのために自発的に発言したい。"
+            context_message = f"{channel_name}で、チームとのコミュニケーションのために自発的に発言したい。"
         
         return {
             'message': context_message,
@@ -456,28 +358,6 @@ class AutonomousSpeechSystem:
         # 真のLLM統合選択に任せることで一貫性を保つ
         return random.choice(available_agents)
     
-    def _fallback_template_generation(self, channel: str, phase: WorkflowPhase) -> Dict[str, str]:
-        """フォールバック: テンプレートベース生成"""
-        logger.warning("🔄 LLM生成失敗、テンプレートフォールバック使用")
-        
-        # 既存のテンプレートシステムを使用
-        agents = ["spectra", "lynq", "paz"]
-        selected_agent = random.choice(agents)
-        
-        active_tasks = self._get_active_tasks_summary()
-        work_mode = bool(active_tasks != "なし")
-        
-        if work_mode:
-            message = self.personality_generator.get_work_mode_message(selected_agent)
-        elif phase.value == "active":
-            message = self.personality_generator.get_meeting_message(selected_agent)
-        else:
-            message = self.personality_generator.get_random_message(selected_agent)
-        
-        return {
-            "agent": selected_agent,
-            "message": message
-        }
         
     def _get_active_tasks_summary(self) -> str:
         """アクティブタスクの要約を取得"""
