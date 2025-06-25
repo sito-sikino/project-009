@@ -208,41 +208,65 @@ class DailyWorkflowSystem:
     
     async def _execute_integrated_morning_workflow(self, event: WorkflowEvent):
         """統合朝次ワークフロー実行（06:00トリガー）"""
+        workflow_start_time = datetime.now()
         try:
             logger.info("🚀 統合朝次ワークフロー開始")
             
             # 1. 開始通知送信
+            start_message_time = datetime.now()
             await self._send_workflow_message(event.message, event.channel, event.agent, 1)
+            message_duration = (datetime.now() - start_message_time).total_seconds()
+            logger.info(f"📤 開始通知送信完了: {message_duration:.2f}秒")
             
             # 2. 長期記憶処理実行（EventDrivenWorkflowOrchestrator使用）
             if self.event_driven_workflow_orchestrator:
                 # EventDrivenWorkflowOrchestratorによる統合ワークフロー実行
+                orchestrator_start_time = datetime.now()
                 logger.info("🔄 EventDrivenWorkflowOrchestrator による統合朝次ワークフロー実行開始")
                 try:
                     await self.event_driven_workflow_orchestrator.execute_morning_workflow()
-                    logger.info("✅ 統合朝次ワークフロー完了")
+                    orchestrator_duration = (datetime.now() - orchestrator_start_time).total_seconds()
+                    logger.info(f"✅ 統合朝次ワークフロー完了: {orchestrator_duration:.2f}秒")
                     
                     # ワークフロー完了後、即座にACTIVEフェーズへ移行
+                    phase_transition_time = datetime.now()
                     self.current_phase = WorkflowPhase.ACTIVE
+                    total_workflow_duration = (phase_transition_time - workflow_start_time).total_seconds()
                     logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE")
                     logger.info(f"🎯 Current phase confirmed: {self.current_phase.value}")
+                    logger.info(f"⏱️ 統合ワークフロー総実行時間: {total_workflow_duration:.2f}秒")
                     
                     # 自発発言システムに即座反映されるよう短時間待機
                     await asyncio.sleep(1)
                     logger.info("✅ Phase transition complete, autonomous speech now enabled")
                     
                 except Exception as e:
-                    logger.error(f"❌ 統合朝次ワークフロー実行エラー: {e}")
+                    error_time = datetime.now()
+                    orchestrator_duration = (error_time - orchestrator_start_time).total_seconds()
+                    logger.error(f"❌ 統合朝次ワークフロー実行エラー: {e} (実行時間: {orchestrator_duration:.2f}秒)")
                     # エラー時もACTIVEフェーズへ移行（システムを継続動作させるため）
                     self.current_phase = WorkflowPhase.ACTIVE
+                    total_workflow_duration = (error_time - workflow_start_time).total_seconds()
                     logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (with error)")
                     logger.info(f"🎯 Current phase confirmed: {self.current_phase.value}")
+                    logger.info(f"⏱️ エラー時ワークフロー総実行時間: {total_workflow_duration:.2f}秒")
             else:
                 # EventDrivenWorkflowOrchestratorが利用できない場合はエラー
                 raise RuntimeError("EventDrivenWorkflowOrchestrator is required but not available")
             
+        except RuntimeError as e:
+            # Fail-fast原則：RuntimeErrorは即座に再発生（隠蔽禁止）
+            logger.error(f"❌ 統合朝次ワークフロー Fail-fast エラー: {e}")
+            raise  # Fail-fast: 即座エラー終了、フォールバック禁止
         except Exception as e:
-            logger.error(f"❌ 統合朝次ワークフローエラー: {e}")
+            error_time = datetime.now()
+            total_workflow_duration = (error_time - workflow_start_time).total_seconds()
+            logger.error(f"❌ 統合朝次ワークフローエラー: {e} (総実行時間: {total_workflow_duration:.2f}秒)")
+            # 戦略的フォールバック：システム継続のためACTIVEフェーズ移行
+            self.current_phase = WorkflowPhase.ACTIVE
+            logger.info(f"🔄 Phase transition: PROCESSING -> ACTIVE (with error)")
+            logger.info(f"🎯 Current phase confirmed: {self.current_phase.value}")
+            logger.info(f"⏱️ フォールバック時ワークフロー総実行時間: {total_workflow_duration:.2f}秒")
             
     async def _send_workflow_message(self, content: str, channel: str, agent: str, priority: int = 1):
         """ワークフローメッセージをPriorityQueueに送信"""

@@ -430,6 +430,279 @@ class TestSystemResilience:
         pytest.skip("Rate limiting integration testing pending")
 
 
+class TestDailyWorkflowIntegration:
+    """Phase 4: 日次ワークフロー統合テスト（TDD RED段階）"""
+
+    @pytest.fixture
+    def mock_dependencies(self):
+        """日次ワークフロー依存関係モック"""
+        memory_system = MagicMock()
+        memory_system.redis_client = MagicMock()
+        memory_system.redis_client.get = MagicMock(return_value=None)
+        memory_system.redis_client.setex = MagicMock()
+        
+        priority_queue = MagicMock()
+        priority_queue.enqueue = AsyncMock()
+        
+        long_term_memory_processor = MagicMock()
+        long_term_memory_processor.daily_memory_consolidation = AsyncMock(
+            return_value=([], MagicMock())
+        )
+        
+        event_driven_orchestrator = MagicMock()
+        event_driven_orchestrator.execute_morning_workflow = AsyncMock(return_value=True)
+        
+        channel_ids = {
+            "command_center": 111222333,
+            "lounge": 444555666,
+            "development": 777888999,
+            "creation": 123456789
+        }
+        
+        return {
+            "memory_system": memory_system,
+            "priority_queue": priority_queue,
+            "long_term_memory_processor": long_term_memory_processor,
+            "event_driven_orchestrator": event_driven_orchestrator,
+            "channel_ids": channel_ids
+        }
+
+    @pytest.mark.asyncio
+    async def test_morning_workflow_trigger_at_6am(self, mock_dependencies):
+        """06:00統合ワークフロートリガーテスト"""
+        # ARRANGE: DailyWorkflowSystemをセットアップ
+        from src.core.daily_workflow import DailyWorkflowSystem
+        
+        workflow = DailyWorkflowSystem(
+            channel_ids=mock_dependencies["channel_ids"],
+            memory_system=mock_dependencies["memory_system"],
+            priority_queue=mock_dependencies["priority_queue"],
+            long_term_memory_processor=mock_dependencies["long_term_memory_processor"],
+            event_driven_workflow_orchestrator=mock_dependencies["event_driven_orchestrator"]
+        )
+        
+        # ACT: 06:00イベント実行をシミュレート
+        from datetime import time
+        from src.core.daily_workflow import WorkflowEvent, WorkflowPhase
+        
+        morning_event = WorkflowEvent(
+            time=time(6, 0),
+            phase=WorkflowPhase.PROCESSING,
+            action="long_term_memory_processing",
+            message="🧠 長期記憶化処理開始...",
+            channel="command_center",
+            agent="system"
+        )
+        
+        # EventDrivenWorkflowOrchestrator統合実行
+        await workflow._execute_integrated_morning_workflow(morning_event)
+        
+        # ASSERT: 統合ワークフロー実行確認
+        mock_dependencies["event_driven_orchestrator"].execute_morning_workflow.assert_called_once()
+        
+        # ASSERT: フェーズがACTIVEに遷移
+        assert workflow.current_phase == WorkflowPhase.ACTIVE
+        
+        # ASSERT: 開始通知がPriorityQueueに送信
+        mock_dependencies["priority_queue"].enqueue.assert_called()
+
+    @pytest.mark.asyncio  
+    async def test_integrated_morning_workflow_with_fail_fast(self, mock_dependencies):
+        """統合朝次ワークフロー Fail-fast処理テスト"""
+        # ARRANGE: エラー発生シミュレーション
+        from src.core.daily_workflow import DailyWorkflowSystem
+        
+        # EventDrivenWorkflowOrchestratorが利用不可
+        mock_dependencies["event_driven_orchestrator"] = None
+        
+        workflow = DailyWorkflowSystem(
+            channel_ids=mock_dependencies["channel_ids"],
+            memory_system=mock_dependencies["memory_system"],
+            priority_queue=mock_dependencies["priority_queue"],
+            long_term_memory_processor=mock_dependencies["long_term_memory_processor"],
+            event_driven_workflow_orchestrator=None  # None設定でエラー発生
+        )
+        
+        # ACT & ASSERT: RuntimeErrorが発生することを確認
+        from datetime import time
+        from src.core.daily_workflow import WorkflowEvent, WorkflowPhase
+        
+        morning_event = WorkflowEvent(
+            time=time(6, 0),
+            phase=WorkflowPhase.PROCESSING,
+            action="long_term_memory_processing",
+            message="🧠 長期記憶化処理開始...",
+            channel="command_center",
+            agent="system"
+        )
+        
+        # Fail-fast原則：フォールバック禁止、即座エラー
+        with pytest.raises(RuntimeError, match="EventDrivenWorkflowOrchestrator is required"):
+            await workflow._execute_integrated_morning_workflow(morning_event)
+
+    @pytest.mark.asyncio
+    async def test_workflow_state_persistence_with_redis(self, mock_dependencies):
+        """ワークフロー状態永続化（Redis）テスト"""
+        # ARRANGE: DailyWorkflowSystemセットアップ
+        from src.core.daily_workflow import DailyWorkflowSystem
+        
+        workflow = DailyWorkflowSystem(
+            channel_ids=mock_dependencies["channel_ids"],
+            memory_system=mock_dependencies["memory_system"],
+            priority_queue=mock_dependencies["priority_queue"],
+            long_term_memory_processor=mock_dependencies["long_term_memory_processor"],
+            event_driven_workflow_orchestrator=mock_dependencies["event_driven_orchestrator"]
+        )
+        
+        # ACT: イベント実行履歴記録
+        from datetime import time
+        from src.core.daily_workflow import WorkflowEvent, WorkflowPhase
+        
+        test_event = WorkflowEvent(
+            time=time(6, 0),
+            phase=WorkflowPhase.PROCESSING,
+            action="long_term_memory_processing",
+            message="テスト",
+            channel="command_center",
+            agent="system"
+        )
+        
+        await workflow._mark_event_as_executed(test_event)
+        
+        # ASSERT: Redis保存確認
+        mock_dependencies["memory_system"].redis_client.setex.assert_called()
+        call_args = mock_dependencies["memory_system"].redis_client.setex.call_args
+        
+        # Redis key format確認
+        key = call_args[0][0]
+        ttl = call_args[0][1] 
+        data = call_args[0][2]
+        
+        assert "workflow_executed_" in key
+        assert "long_term_memory_processing" in key
+        assert ttl == 24 * 60 * 60  # 24時間TTL
+        assert "long_term_memory_processing" in data  # JSON data確認
+
+    @pytest.mark.asyncio
+    async def test_workflow_error_handling_without_fallback(self, mock_dependencies):
+        """ワークフローエラーハンドリング（フォールバック禁止）テスト"""
+        # ARRANGE: エラー発生条件設定
+        from src.core.daily_workflow import DailyWorkflowSystem
+        
+        # EventDrivenWorkflowOrchestratorでエラー発生
+        mock_dependencies["event_driven_orchestrator"].execute_morning_workflow = AsyncMock(
+            side_effect=Exception("Memory consolidation failed")
+        )
+        
+        workflow = DailyWorkflowSystem(
+            channel_ids=mock_dependencies["channel_ids"],
+            memory_system=mock_dependencies["memory_system"],
+            priority_queue=mock_dependencies["priority_queue"],
+            long_term_memory_processor=mock_dependencies["long_term_memory_processor"],
+            event_driven_workflow_orchestrator=mock_dependencies["event_driven_orchestrator"]
+        )
+        
+        # ACT: エラー発生時の処理
+        from datetime import time
+        from src.core.daily_workflow import WorkflowEvent, WorkflowPhase
+        
+        morning_event = WorkflowEvent(
+            time=time(6, 0),
+            phase=WorkflowPhase.PROCESSING,
+            action="long_term_memory_processing",
+            message="🧠 長期記憶化処理開始...",
+            channel="command_center",
+            agent="system"
+        )
+        
+        # 例外が発生してもシステムが継続することを確認（ACTIVEフェーズ移行）
+        await workflow._execute_integrated_morning_workflow(morning_event)
+        
+        # ASSERT: エラー時もACTIVEフェーズに移行（システム継続性）
+        assert workflow.current_phase == WorkflowPhase.ACTIVE
+        
+        # ASSERT: execute_morning_workflowが呼ばれた（エラー発生）
+        mock_dependencies["event_driven_orchestrator"].execute_morning_workflow.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_workflow_transparency_status_reporting(self, mock_dependencies):
+        """ワークフロー透明性・状態レポートテスト"""
+        # ARRANGE: DailyWorkflowSystemセットアップ
+        from src.core.daily_workflow import DailyWorkflowSystem
+        
+        workflow = DailyWorkflowSystem(
+            channel_ids=mock_dependencies["channel_ids"],
+            memory_system=mock_dependencies["memory_system"],
+            priority_queue=mock_dependencies["priority_queue"],
+            long_term_memory_processor=mock_dependencies["long_term_memory_processor"],
+            event_driven_workflow_orchestrator=mock_dependencies["event_driven_orchestrator"]
+        )
+        
+        # Redis実行履歴モック設定
+        import json
+        mock_dependencies["memory_system"].redis_client.get = MagicMock(
+            return_value=json.dumps({
+                "event_action": "long_term_memory_processing",
+                "executed_at": "2025-06-25T06:00:00",
+                "phase": "processing",
+                "event_time": "06:00:00"
+            })
+        )
+        
+        # ACT: ワークフロー状態取得
+        status = workflow.get_current_status()
+        
+        # ASSERT: 透明性確保項目確認
+        assert "current_phase" in status
+        assert "is_running" in status
+        assert "executed_today" in status
+        assert "next_events" in status
+        
+        # ASSERT: 実行済みイベント表示
+        assert len(status["executed_today"]) > 0
+        executed_event = status["executed_today"][0]
+        assert executed_event["action"] == "long_term_memory_processing"
+        assert executed_event["time"] == "06:00"
+
+    @pytest.mark.asyncio
+    async def test_workflow_performance_monitoring_under_10_seconds(self, mock_dependencies):
+        """ワークフローパフォーマンス監視（10秒以内）テスト"""
+        # ARRANGE: パフォーマンス測定設定
+        import time
+        from src.core.daily_workflow import DailyWorkflowSystem
+        
+        workflow = DailyWorkflowSystem(
+            channel_ids=mock_dependencies["channel_ids"],
+            memory_system=mock_dependencies["memory_system"],
+            priority_queue=mock_dependencies["priority_queue"],
+            long_term_memory_processor=mock_dependencies["long_term_memory_processor"],
+            event_driven_workflow_orchestrator=mock_dependencies["event_driven_orchestrator"]
+        )
+        
+        # ACT: 統合ワークフロー実行時間測定
+        from datetime import time as dt_time
+        from src.core.daily_workflow import WorkflowEvent, WorkflowPhase
+        
+        morning_event = WorkflowEvent(
+            time=dt_time(6, 0),
+            phase=WorkflowPhase.PROCESSING,
+            action="long_term_memory_processing", 
+            message="🧠 長期記憶化処理開始...",
+            channel="command_center",
+            agent="system"
+        )
+        
+        start_time = time.time()
+        await workflow._execute_integrated_morning_workflow(morning_event)
+        elapsed_time = time.time() - start_time
+        
+        # ASSERT: 10秒以内完了（統合ワークフロー要件）
+        assert elapsed_time < 10.0, f"統合ワークフロー処理時間が10秒を超過: {elapsed_time:.2f}秒"
+        
+        # ASSERT: EventDrivenWorkflowOrchestrator実行確認
+        mock_dependencies["event_driven_orchestrator"].execute_morning_workflow.assert_called_once()
+
+
 # TDD Red Phase確認用のテスト実行
 if __name__ == "__main__":
     print("🔴 TDD Red Phase: Complete Message Flow Integration Tests")

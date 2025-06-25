@@ -1,0 +1,97 @@
+{
+  "timestamp": "2025-06-25T21:30:09.481983",
+  "benchmark_targets": {
+    "batch_embedding_250": {
+      "operation_name": "batch_embedding_250",
+      "target_time_ms": 30000,
+      "description": "バッチ埋め込み250件処理",
+      "critical": true
+    },
+    "memory_migration_1000": {
+      "operation_name": "memory_migration_1000",
+      "target_time_ms": 60000,
+      "description": "メモリ移行1000件処理",
+      "critical": true
+    },
+    "similarity_search": {
+      "operation_name": "similarity_search",
+      "target_time_ms": 500,
+      "description": "類似検索単一クエリ",
+      "critical": true
+    },
+    "integrated_workflow": {
+      "operation_name": "integrated_workflow",
+      "target_time_ms": 600000,
+      "description": "統合ワークフロー全体",
+      "critical": true
+    },
+    "fail_fast_response": {
+      "operation_name": "fail_fast_response",
+      "target_time_ms": 100,
+      "description": "Fail-fastエラー検出",
+      "critical": true
+    },
+    "memory_usage_check": {
+      "operation_name": "memory_usage_check",
+      "target_time_ms": 1610612736,
+      "description": "メモリ使用量制限",
+      "critical": true
+    }
+  },
+  "reports": {
+    "batch_embedding_250": {
+      "message": "No metrics found for the specified criteria"
+    },
+    "memory_migration_1000": {
+      "message": "No metrics found for the specified criteria"
+    },
+    "similarity_search": {
+      "summary": {
+        "total_operations": 1,
+        "successful_operations": 1,
+        "success_rate_percent": 100.0,
+        "time_range_hours": 24
+      },
+      "performance": {
+        "avg_execution_time_ms": 600.702298048418,
+        "median_execution_time_ms": 600.702298048418,
+        "min_execution_time_ms": 600.702298048418,
+        "max_execution_time_ms": 600.702298048418,
+        "std_deviation_ms": 0
+      },
+      "benchmark": {
+        "target_ms": 500,
+        "current_avg_ms": 600.702298048418,
+        "performance_ratio": 1.201404596096836,
+        "target_achieved": false
+      }
+    },
+    "integrated_workflow": {
+      "message": "No metrics found for the specified criteria"
+    },
+    "fail_fast_response": {
+      "summary": {
+        "total_operations": 1,
+        "successful_operations": 1,
+        "success_rate_percent": 100.0,
+        "time_range_hours": 24
+      },
+      "performance": {
+        "avg_execution_time_ms": 50.1696519786492,
+        "median_execution_time_ms": 50.1696519786492,
+        "min_execution_time_ms": 50.1696519786492,
+        "max_execution_time_ms": 50.1696519786492,
+        "std_deviation_ms": 0
+      },
+      "benchmark": {
+        "target_ms": 100,
+        "current_avg_ms": 50.1696519786492,
+        "performance_ratio": 0.501696519786492,
+        "target_achieved": true
+      }
+    },
+    "memory_usage_check": {
+      "message": "No metrics found for the specified criteria"
+    }
+  }
+}

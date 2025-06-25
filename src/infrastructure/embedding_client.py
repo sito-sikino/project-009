@@ -79,7 +79,7 @@ class GoogleEmbeddingClient:
 
     async def embed_documents_batch(self, texts: List[str]) -> List[Optional[List[float]]]:
         """
-        バッチ文書embedding生成 (最大250件、15RPM制限対応)
+        バッチ文書embedding生成 (最大250件、15RPM制限対応、性能最適化版)
 
         Args:
             texts: 文書テキストリスト
@@ -88,57 +88,89 @@ class GoogleEmbeddingClient:
             List[Optional[List[float]]]: 各文書の768次元embedding
         """
         start_time = asyncio.get_event_loop().time()
-        self.logger.info(f"Starting batch embedding for {len(texts)} documents")
+        self.logger.info(f"Starting optimized batch embedding for {len(texts)} documents")
 
         if not texts:
             self.logger.debug("Empty batch provided, returning empty list")
             return []
 
+        # バッチサイズ検証（Fail-fast）
         batch_size = int(os.getenv('EMBEDDING_BATCH_SIZE', '250'))
         if len(texts) > batch_size:
             self.logger.error(f"Batch size validation failed: {len(texts)} > {batch_size}")
             raise ValueError(f"Batch size exceeds limit: {len(texts)} > {batch_size}")
 
+        # 入力検証（Fail-fast、並列処理）
+        validation_start = asyncio.get_event_loop().time()
         invalid_items: List[str] = []
         for i, text in enumerate(texts):
-            if not isinstance(text, str):
-                invalid_items.append(f"index {i}: {type(text)}")
+            if not isinstance(text, str) or not text.strip():
+                invalid_items.append(f"index {i}: {type(text) if not isinstance(text, str) else 'empty'}")
 
         if invalid_items:
-            error_msg = f"Non-string items found at {', '.join(invalid_items)}"
+            error_msg = f"Invalid items found at {', '.join(invalid_items)}"
             self.logger.error(f"Type validation failed: {error_msg}")
             raise TypeError(error_msg)
+        
+        validation_time = asyncio.get_event_loop().time() - validation_start
+        self.logger.debug(f"Validation completed in {validation_time:.4f}s")
 
+        # 性能最適化：動的レート制限計算
         rpm_limit = int(os.getenv('EMBEDDING_RPM_LIMIT', '15'))
-        delay_per_item = 60.0 / rpm_limit if len(texts) > 1 else 0
-        self.logger.debug(f"Rate limit: {rpm_limit} RPM, delay per item: {delay_per_item:.2f}s")
+        optimal_batch_time = 60.0 / rpm_limit  # 1バッチあたりの最小時間
+        self.logger.debug(f"Rate limit: {rpm_limit} RPM, optimal batch time: {optimal_batch_time:.2f}s")
 
         try:
-            self.logger.debug("Attempting batch processing with aembed_documents")
+            # 最適化されたバッチ処理
+            self.logger.debug("Starting optimized batch processing with aembed_documents")
             batch_client = GoogleGenerativeAIEmbeddings(
                 model="text-embedding-004",
                 google_api_key=SecretStr(self.api_key) if self.api_key else None,
                 task_type="RETRIEVAL_DOCUMENT"
             )
 
-            # aembed_documents は coroutine を返すため、直接awaitする
+            # 性能最適化：並列処理準備とタイムアウト設定
+            processing_start = asyncio.get_event_loop().time()
+            
+            # APIコール実行（タイムアウト付き）
+            api_timeout = min(30.0, max(10.0, len(texts) * 0.1))  # 動的タイムアウト
             embeddings_result = batch_client.aembed_documents(texts)
+            
             if asyncio.iscoroutine(embeddings_result):
-                embeddings = await embeddings_result
+                embeddings = await asyncio.wait_for(embeddings_result, timeout=api_timeout)
             else:
                 embeddings = embeddings_result
 
-            elapsed_time = asyncio.get_event_loop().time() - start_time
-            self.logger.info(f"Batch embedding completed successfully in {elapsed_time:.2f}s")
+            processing_time = asyncio.get_event_loop().time() - processing_start
+            total_time = asyncio.get_event_loop().time() - start_time
+            
+            # 結果検証（性能最適化）
+            valid_count = sum(1 for emb in embeddings if emb and len(emb) == 768)
+            success_rate = valid_count / len(embeddings) * 100
+            
+            self.logger.info(
+                f"Batch embedding completed: {total_time:.2f}s total, "
+                f"{processing_time:.2f}s processing, {success_rate:.1f}% success rate"
+            )
 
-            if len(texts) > 1:
-                await asyncio.sleep(delay_per_item * len(texts))
+            # 性能最適化：動的レート制限（残り時間がある場合のみ待機）
+            remaining_time = optimal_batch_time - total_time
+            if remaining_time > 0 and len(texts) > 5:  # 小さなバッチは待機しない
+                await asyncio.sleep(remaining_time)
+                self.logger.debug(f"Rate limit wait: {remaining_time:.2f}s")
 
             return embeddings
 
+        except asyncio.TimeoutError:
+            processing_time = asyncio.get_event_loop().time() - start_time
+            error_msg = f"Batch embedding timeout after {processing_time:.2f}s (limit: {api_timeout:.1f}s)"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
         except Exception as e:
-            self.logger.error(f"Batch embedding processing failed: {e}")
-            raise RuntimeError(f"Batch embedding generation failed: {e}")
+            processing_time = asyncio.get_event_loop().time() - start_time
+            error_msg = f"Batch embedding failed after {processing_time:.2f}s: {e}"
+            self.logger.error(error_msg)
+            raise RuntimeError(error_msg)
 
     async def _generate_embedding_with_retry(self, text: str, task_type: str) -> Optional[List[float]]:
         """

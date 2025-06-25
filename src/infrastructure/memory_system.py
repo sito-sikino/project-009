@@ -207,60 +207,87 @@ class ImprovedDiscordMemorySystem:
         return logger
     
     async def initialize(self) -> bool:
-        """Memory System初期化（改善版）"""
+        """Memory System初期化（Fail-fast対応改善版）"""
         try:
-            # Redis接続プール設定強化
+            # Redis接続プール設定強化（Fail-fast対応）
             if not self.redis_url:
                 raise MemorySystemConnectionError("Redis URL not provided")
+            
+            # Redis接続のFail-fast設定
             self.redis_pool = redis.ConnectionPool.from_url(
                 self.redis_url,
                 max_connections=int(os.getenv('REDIS_MAX_CONNECTIONS', '10')),
                 decode_responses=True,
                 encoding="utf-8",
-                retry_on_timeout=True,
-                socket_timeout=5.0,
-                socket_connect_timeout=5.0,
+                retry_on_timeout=False,  # Fail-fast: リトライ無効
+                socket_timeout=1.0,      # Fail-fast: 1秒タイムアウト
+                socket_connect_timeout=1.0,  # Fail-fast: 1秒接続タイムアウト
                 health_check_interval=30
             )
             self.redis = redis.Redis(connection_pool=self.redis_pool)
             
-            # Redis接続確認
-            if self.redis:
-                await self.redis.ping()
-            self.health_status.redis_connected = True
-            self.logger.info("✅ Redis Hot Memory connected with connection pool")
+            # Redis接続確認（Fail-fast）
+            redis_start = time.time()
+            try:
+                await asyncio.wait_for(self.redis.ping(), timeout=1.0)
+                self.health_status.redis_connected = True
+                self.logger.info(f"✅ Redis connected in {time.time() - redis_start:.3f}s")
+            except asyncio.TimeoutError:
+                redis_error_time = time.time() - redis_start
+                self.logger.error(f"❌ Redis connection timeout after {redis_error_time:.3f}s")
+                raise RedisConnectionError(f"Redis connection timeout after {redis_error_time:.3f}s")
+            except Exception as e:
+                redis_error_time = time.time() - redis_start
+                self.logger.error(f"❌ Redis initialization failed after {redis_error_time:.3f}s: {e}")
+                raise RedisConnectionError(f"Redis initialization failed: {e}")
             
-            # PostgreSQL接続プール設定強化
-            self.postgres_pool = await asyncpg.create_pool(
-                self.postgres_url,
-                min_size=int(os.getenv('POSTGRES_POOL_MIN_SIZE', '2')),
-                max_size=int(os.getenv('POSTGRES_POOL_MAX_SIZE', '10')),
-                max_queries=50000,
-                max_inactive_connection_lifetime=300.0,
-                command_timeout=30,
-                server_settings={
-                    'jit': 'off',
-                    'application_name': 'discord_agent_memory_v2',
-                    'statement_timeout': '30s',
-                    'lock_timeout': '10s',
-                    'work_mem': '256MB',  # pgvector最適化
-                    'effective_cache_size': '1GB'
-                }
-            )
-            
-            # PostgreSQL & pgvector確認
-            async with self.postgres_pool.acquire() as conn:
-                # pgvector拡張確認
-                extensions = await conn.fetch(
-                    "SELECT extname FROM pg_extension WHERE extname = 'vector'"
+            # PostgreSQL接続プール設定強化（Fail-fast対応）
+            postgres_start = time.time()
+            try:
+                self.postgres_pool = await asyncio.wait_for(
+                    asyncpg.create_pool(
+                        self.postgres_url,
+                        min_size=int(os.getenv('POSTGRES_POOL_MIN_SIZE', '2')),
+                        max_size=int(os.getenv('POSTGRES_POOL_MAX_SIZE', '10')),
+                        max_queries=50000,
+                        max_inactive_connection_lifetime=300.0,
+                        command_timeout=2.0,  # Fail-fast: 2秒コマンドタイムアウト
+                        server_settings={
+                            'jit': 'off',
+                            'application_name': 'discord_agent_memory_v2',
+                            'statement_timeout': '2s',  # Fail-fast: 2秒ステートメントタイムアウト
+                            'lock_timeout': '1s',       # Fail-fast: 1秒ロックタイムアウト
+                            'work_mem': '256MB',
+                            'effective_cache_size': '1GB'
+                        }
+                    ),
+                    timeout=3.0  # Fail-fast: 3秒プール作成タイムアウト
                 )
-                if not extensions:
-                    raise PostgreSQLConnectionError("pgvector extension not found")
                 
-                await conn.fetchval('SELECT 1')
-                self.health_status.postgres_connected = True
-            
-            self.logger.info("✅ PostgreSQL Cold Memory connected with pgvector")
+                # PostgreSQL & pgvector確認（Fail-fast）
+                async with self.postgres_pool.acquire() as conn:
+                    # pgvector拡張確認
+                    extensions = await asyncio.wait_for(
+                        conn.fetch("SELECT extname FROM pg_extension WHERE extname = 'vector'"),
+                        timeout=1.0
+                    )
+                    if not extensions:
+                        raise PostgreSQLConnectionError("pgvector extension not found")
+                    
+                    await asyncio.wait_for(conn.fetchval('SELECT 1'), timeout=1.0)
+                    self.health_status.postgres_connected = True
+                
+                postgres_time = time.time() - postgres_start
+                self.logger.info(f"✅ PostgreSQL connected in {postgres_time:.3f}s")
+                
+            except asyncio.TimeoutError:
+                postgres_error_time = time.time() - postgres_start
+                self.logger.error(f"❌ PostgreSQL connection timeout after {postgres_error_time:.3f}s")
+                raise PostgreSQLConnectionError(f"PostgreSQL connection timeout after {postgres_error_time:.3f}s")
+            except Exception as e:
+                postgres_error_time = time.time() - postgres_start
+                self.logger.error(f"❌ PostgreSQL initialization failed after {postgres_error_time:.3f}s: {e}")
+                raise PostgreSQLConnectionError(f"PostgreSQL initialization failed: {e}")
             
             # Embeddings API確認
             self.health_status.embeddings_available = True
@@ -280,10 +307,16 @@ class ImprovedDiscordMemorySystem:
             self.logger.error(f"❌ PostgreSQL initialization failed: {e}")
             raise PostgreSQLConnectionError(f"PostgreSQL connection failed: {e}")
             
+        except (RedisConnectionError, PostgreSQLConnectionError) as e:
+            # Fail-fast: 接続エラーは即座に再発生（隠蔽禁止）
+            self.health_status.error_count += 1
+            raise  # Fail-fast原則: 即座にエラー伝播
+            
         except Exception as e:
+            # その他のエラーも即座に報告
             self.logger.error(f"❌ Memory System initialization failed: {e}")
             self.health_status.error_count += 1
-            return False
+            raise MemorySystemError(f"Memory system initialization failed: {e}")
     
     @retry(
         stop=stop_after_attempt(3),
