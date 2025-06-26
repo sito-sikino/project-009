@@ -1,6 +1,11 @@
-# CLAUDE.md - Project-009 統合開発環境
+# CLAUDE.md - Project-009 Discord マルチエージェントシステム
 
-## 🚀 Claude Code完全最適化設定
+## 🚀 プロジェクト概要
+
+### **システム仕様**
+Discord上で3つのAIエージェント（SPECTRA・LYNQ・PAZ）が協調動作するマルチエージェントシステム。Clean ArchitectureとFail-fast原則により設計され、統合受信・個別送信型アーキテクチャを採用。
+
+**現在のバージョン**: v0.3.0（長期記憶システム統合完了・本番稼働中）
 
 ### **プロジェクト固有コマンド集**
 ```bash
@@ -83,13 +88,11 @@ git worktree add ../project-009-feature feature/new-agent
 # Claude C: アーキテクチャ・設計レビュー担当
 ```
 
-## 🚀 プロジェクト概要 - Discord マルチエージェント
-
-### **現在の状況: v0.2.4（本番稼働中）**
-- **アーキテクチャ**: Clean Architecture + Fail-fast原則実装完了
-- **品質状況**: 重要バグゼロ、フォールバック36項目削除、戦略的6箇所保持
-- **パフォーマンス**: <2秒応答、50+同時ユーザー対応、99%稼働率
-- **次期予定**: v0.3.0 PostgreSQL統合（長期記憶システム完全実装）
+### **アーキテクチャ特徴**
+- **Clean Architecture**: 依存関係逆転、責務分離
+- **Fail-fast原則**: エラー隠蔽禁止、即座停止
+- **統合受信・個別送信**: 単一受信Bot、3つの専用送信Bot
+- **完全設定管理**: settings.py完全中央化、ハードコード禁止
 
 ### **🤖 エージェント特性**
 - **SPECTRA** 🔵: 統括進行、プロジェクト管理
@@ -125,34 +128,52 @@ DISCORD_RECEPTION_TOKEN=<reception_bot_token>
 DISCORD_SPECTRA_TOKEN=<spectra_bot_token>  
 DISCORD_LYNQ_TOKEN=<lynq_bot_token>
 DISCORD_PAZ_TOKEN=<paz_bot_token>
+DISCORD_SPECTRA_BOT_ID=<spectra_bot_id>
+DISCORD_LYNQ_BOT_ID=<lynq_bot_id>
+DISCORD_PAZ_BOT_ID=<paz_bot_id>
+COMMAND_CENTER_CHANNEL_ID=<channel_id>
+LOUNGE_CHANNEL_ID=<channel_id>
+DEVELOPMENT_CHANNEL_ID=<channel_id>
+CREATION_CHANNEL_ID=<channel_id>
 
 # AI統合（必須）
 GEMINI_API_KEY=<google_gemini_api_key>
 
-# データベース
-REDIS_URL=redis://localhost:6379
-POSTGRESQL_URL=postgresql://user:pass@localhost:5432/db
+# パフォーマンス監視（必須）
+HOT_MEMORY_TARGET_MS=<milliseconds>
+COLD_MEMORY_TARGET_MS=<milliseconds>
+EMBEDDING_TARGET_MS=<milliseconds>
+ERROR_RATE_THRESHOLD=<float>
+CIRCUIT_BREAKER_FAILURE_THRESHOLD=<int>
+CIRCUIT_BREAKER_RECOVERY_TIMEOUT=<int>
 
-# システム設定
-ENVIRONMENT=production  # または test
+# データベース（オプション）
+REDIS_URL=redis://localhost:6379
+POSTGRESQL_URL=postgresql://user:pass@localhost:5432/discord_agents
+
+# システム設定（オプション）
+ENVIRONMENT=production  # development/test/production
 LOG_LEVEL=INFO
 HEALTH_CHECK_PORT=8000
+APP_VERSION=v0.3.0
 
-# 環境別自発発言設定
-# test: 10秒間隔, 100%確率（開発・検証用）
-# production: 300秒間隔, 33%確率（本番運用）
+# 長期記憶システム（v0.3.0実装済み・デフォルト有効）
+LONG_TERM_MEMORY_ENABLED=true
+VECTOR_SEARCH_ENABLED=true
+DAILY_REPORT_ENABLED=true
 ```
 
 ### **システム要件**
-- Python 3.9+, Redis 7.0+, PostgreSQL 14+ with pgvector
-- 2GB+ RAM, 2+ CPU cores
-- datasketch（重複検出）
+- **Python**: 3.9以上
+- **データベース**: Redis 7.0+, PostgreSQL 14+ with pgvector
+- **ハードウェア**: 2GB+ RAM, 2+ CPU cores
+- **依存関係**: discord.py, langgraph, langchain, datasketch
 
-### **パフォーマンス基準**
-- 応答時間: <2秒必須
-- テストカバレッジ: 80%以上必須
-- システム稼働率: >99%
-- メモリ使用量: <1.5GB
+### **品質基準**
+- **応答時間**: 2秒以内
+- **テストカバレッジ**: 80%以上
+- **静的解析**: flake8, mypy, bandit全チェック通過
+- **セキュリティ**: 脆弱性ゼロ
 
 ## 🚀 自動ワークフロー制御（Claude Code一元管理）
 
@@ -248,10 +269,12 @@ Ctrl+C  # グレースフルシャットダウン
 - **自発発言**: 環境別間隔（test: 10秒、production: 5分）
 - **タスク管理**: クロスチャンネル移行対応、Redis履歴保存
 
-### **長期記憶システム（v0.3.0予定）**
-- **処理時刻**: 毎日06:00自動実行（3-API処理）
+### **長期記憶システム（v0.3.0実装済み・稼働中）**
+- **処理時刻**: 毎日06:00自動実行（3-API統合処理）
 - **日報システム**: 記憶化完了次第自動送信
 - **検索機能**: PostgreSQL pgvector完全実装
+- **機能状態**: 完全実装済み・本番稼働中
+- **設定状態**: LONG_TERM_MEMORY_ENABLED=true（デフォルト有効）
 
 ## 🚨 緊急時・デバッグ対応
 
@@ -282,9 +305,9 @@ Claude Codeが状況を自動判断し、適切なワークフローを実行し
 
 ## 📋 重要制約・注意事項
 
-### **現在の制限事項（v0.2.4）**
-- PostgreSQL検索機能: 一時無効化（v0.3.0で復活予定）
-- API制限: Embedding 15 RPM、Gemini通常利用
+### **現在の制限事項（v0.3.0）**
+- Embedding API: 15 RPM（設定値）、Google実制限あり
+- Gemini 2.0 Flash: 通常利用（統合分析・進捗差分生成）
 - 戦略的フォールバック: 6箇所保持（システム継続性のため）
 
 ### **Git & GitHub統合（Claude Code自動実行）**

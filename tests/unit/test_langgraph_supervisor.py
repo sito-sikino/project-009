@@ -1,8 +1,11 @@
 """
-LangGraph Supervisor Pattern Unit Tests - TDD Phase 4 (Red Phase)
+LangGraph Supervisor Pattern Unit Tests - TDD Phase 1 (RED Phase)
+責務再分離後の期待動作を定義する失敗テスト
 
-テスト対象: LangGraph StateGraphを活用したSupervisor Pattern
-目的: エージェント選択・応答生成・状態管理の検証
+テスト対象: 
+- AgentSupervisor: StateGraphワークフロー管理専任
+- GeminiClient: API処理専任（プロンプト生成削除）
+- 重複機能除去と責務明確化
 """
 
 import pytest
@@ -10,25 +13,28 @@ import asyncio
 from unittest.mock import AsyncMock, MagicMock, patch
 from typing import Dict, Any, List
 
-# テスト対象をインポート（まだ存在しないため失敗する）
+# テスト対象をインポート（責務再分離後の期待動作テスト）
 try:
     from src.agents.supervisor import AgentSupervisor, AgentState
     from src.infrastructure.gemini_client import GeminiClient
+    IMPORTS_SUCCESS = True
 except ImportError:
     # TDD Red Phase: 実装前なのでインポートエラーは期待通り
     AgentSupervisor = None
     AgentState = None
     GeminiClient = None
+    IMPORTS_SUCCESS = False
 
 
-class TestAgentSupervisor:
-    """Agent Supervisor単体テスト"""
+class TestAgentSupervisorResponsibilitySeparation:
+    """責務再分離後のAgentSupervisor単体テスト（失敗テスト）"""
     
     @pytest.fixture
     def mock_gemini_client(self):
-        """Gemini APIクライアントのモック"""
+        """責務再分離後のGemini APIクライアントのモック"""
         client = AsyncMock()
-        client.unified_agent_selection = AsyncMock()
+        # 責務再分離後: プロンプト生成なし、純粋なAPI呼び出しのみ
+        client.call_unified_api = AsyncMock()
         return client
     
     @pytest.fixture
@@ -37,7 +43,7 @@ class TestAgentSupervisor:
         memory = AsyncMock()
         memory.load_hot_memory = AsyncMock()
         memory.load_cold_memory = AsyncMock()
-        memory.update_memory = AsyncMock()
+        memory.update_memory_transactional = AsyncMock()
         return memory
     
     @pytest.fixture
@@ -52,34 +58,35 @@ class TestAgentSupervisor:
             'confidence': 0.0
         }
 
-    def test_agent_supervisor_initialization(self, mock_gemini_client, mock_memory_system):
-        """Agent Supervisor初期化テスト"""
-        if AgentSupervisor is None:
-            pytest.skip("AgentSupervisor not implemented yet - TDD Red Phase")
+    def test_supervisor_only_handles_workflow_fails(self, mock_gemini_client, mock_memory_system):
+        """責務再分離: SupervisorはStateGraphワークフロー管理のみで、プロンプト生成なし（失敗テスト）"""
+        if not IMPORTS_SUCCESS:
+            pytest.skip("Imports failed - TDD Red Phase")
         
-        # ACT: Supervisor作成
         supervisor = AgentSupervisor(
             gemini_client=mock_gemini_client,
             memory_system=mock_memory_system
         )
         
-        # ASSERT: 正常に初期化されること
-        assert supervisor.gemini_client == mock_gemini_client
-        assert supervisor.memory_system == mock_memory_system
+        # ASSERT: 責務再分離後はプロンプト生成機能なし
+        with pytest.raises(AttributeError):
+            supervisor._generate_unified_prompt({})  # 削除されるべき
+        
+        # ASSERT: StateGraphワークフロー管理機能は保持
         assert hasattr(supervisor, 'graph')
+        assert hasattr(supervisor, 'process_message')
 
     @pytest.mark.asyncio
-    async def test_unified_agent_selection_flow(self, mock_gemini_client, mock_memory_system, sample_agent_state):
-        """統合エージェント選択フローテスト"""
-        if AgentSupervisor is None:
-            pytest.skip("AgentSupervisor not implemented yet - TDD Red Phase")
+    async def test_supervisor_calls_pure_api_client_fails(self, mock_gemini_client, mock_memory_system, sample_agent_state):
+        """責務再分離後: SupervisorはプロンプトなしでGeminiClient純粋API呼び出し（失敗テスト）"""
+        if not IMPORTS_SUCCESS:
+            pytest.skip("Imports failed - TDD Red Phase")
         
-        # ARRANGE: Gemini応答のモック
-        mock_gemini_client.unified_agent_selection.return_value = {
+        # ARRANGE: 責務再分離後のGemini純粋API応答のモック
+        mock_gemini_client.call_unified_api.return_value = {
             'selected_agent': 'spectra',
             'response_content': 'こんにちは！元気ですか？',
-            'confidence': 0.95,
-            'reasoning': 'カジュアルな挨拶なのでSpectraが適切'
+            'confidence': 0.95
         }
         
         supervisor = AgentSupervisor(
@@ -87,16 +94,18 @@ class TestAgentSupervisor:
             memory_system=mock_memory_system
         )
         
-        # ACT: 統合エージェント選択実行
+        # ACT: Supervisor内でプロンプト生成→純粋API呼び出し
         result = await supervisor.process_message(sample_agent_state)
         
-        # ASSERT: 期待される結果
+        # ASSERT: 責務再分離後の期待動作
         assert result['selected_agent'] == 'spectra'
-        assert result['response_content'] == 'こんにちは！元気ですか？'
-        assert result['confidence'] == 0.95
         
-        # Gemini APIが正しく呼ばれたことを確認
-        mock_gemini_client.unified_agent_selection.assert_called_once()
+        # ASSERT: 純粋API呼び出しメソッドが使用される（unified_agent_selectionではない）
+        mock_gemini_client.call_unified_api.assert_called_once()
+        
+        # ASSERT: 古いメソッドは呼ばれない
+        assert not hasattr(mock_gemini_client, 'unified_agent_selection') or \
+               not mock_gemini_client.unified_agent_selection.called
 
     @pytest.mark.asyncio
     async def test_memory_integration_flow(self, mock_gemini_client, mock_memory_system, sample_agent_state):
@@ -147,17 +156,16 @@ class TestAgentSupervisor:
             assert field in state
 
 
-class TestGeminiClient:
-    """Gemini API Client単体テスト"""
+class TestGeminiClientResponsibilitySeparation:
+    """責務再分離後のGemini API Client単体テスト（失敗テスト）"""
     
     @pytest.fixture
     def mock_api_response(self):
-        """Gemini API応答のモック"""
+        """責務再分離後のGemini API応答のモック"""
         return {
             'selected_agent': 'lynq',
             'response_content': '論理的に分析すると...',
-            'confidence': 0.88,
-            'reasoning': '分析的な内容のためLynQが適切'
+            'confidence': 0.88
         }
 
     @pytest.mark.asyncio

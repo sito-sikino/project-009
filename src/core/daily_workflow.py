@@ -9,13 +9,14 @@ AC-015: Daily Workflow Automation の実装
 """
 import asyncio
 import logging
-import os
 from datetime import datetime, time, timedelta
-from typing import Dict, Optional, Callable
+from typing import Dict, Optional, Callable, Any
 import json
 from dataclasses import dataclass
 from enum import Enum
 import discord
+
+from ..config.settings import get_system_settings, get_discord_settings
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +50,21 @@ class DailyWorkflowSystem:
         self.is_running = False
         self.task: Optional[asyncio.Task] = None
         self.user_override_active = False
-        self.current_tasks = {}  # チャンネル別現在タスク
+        self.current_tasks: Dict[str, Any] = {}  # チャンネル別現在タスク
         
         # ワークフロー スケジュール定義
+        # テスト環境では環境変数による時刻制御を優先
+        system_settings = get_system_settings()
+        test_time = system_settings.test_workflow_time
+        if test_time:
+            hour, minute = map(int, test_time.split(':'))
+            workflow_time = time(hour, minute)
+        else:
+            workflow_time = time(6, 0)  # 本番は06:00
+            
         self.workflow_schedule = [
             WorkflowEvent(
-                time=time(15, 26),
+                time=workflow_time,
                 phase=WorkflowPhase.PROCESSING,
                 action="long_term_memory_processing",
                 message="🧠 **[TEST] 長期記憶化処理開始**\n\n" +
@@ -65,7 +75,7 @@ class DailyWorkflowSystem:
                 agent="system"
             ),
             WorkflowEvent(
-                time=time(20, 0),
+                time=time(*system_settings.parse_time_setting(system_settings.workflow_work_conclusion_time)),
                 phase=WorkflowPhase.FREE,
                 action="work_session_conclusion",
                 message="🌆 **Work Session Conclusion**\n\n" +
@@ -79,7 +89,7 @@ class DailyWorkflowSystem:
                 agent="spectra"
             ),
             WorkflowEvent(
-                time=time(0, 0),
+                time=time(*system_settings.parse_time_setting(system_settings.workflow_system_rest_time)),
                 phase=WorkflowPhase.STANDBY,
                 action="system_rest_period",
                 message="🌙 **System Rest Period**\n\n" +
@@ -440,7 +450,7 @@ class DailyWorkflowSystem:
                     old_task = current_active_task['task']
                     
                     # 旧チャンネルからタスクを削除（チャンネル移動の場合）
-                    if old_channel != channel:
+                    if old_channel != channel and old_channel is not None:
                         del self.current_tasks[old_channel]
                     
                     # 新チャンネルにタスクを設定
@@ -494,19 +504,29 @@ class DailyWorkflowSystem:
             logger.error(f"❌ Task command processing failed: {e}")
             return f"❌ **タスク処理中にエラーが発生しました**: {str(e)}"
         
+        # 未対応コマンドのフォールバック
+        return f"❓ **未対応コマンド**: {command}\n\n利用可能コマンド: commit, change"
+        
     def _update_current_phase(self, current_time: time):
-        """現在のフェーズを更新"""
+        """現在のフェーズを更新（統合時間ソース使用）"""
+        system_settings = get_system_settings()
         hour = current_time.hour
         
-        if hour >= 20:
+        # 統合時間ソースからフェーズ開始時刻を取得
+        phase_hours = system_settings.workflow_phase_hours
+        
+        # 時刻順でフェーズを判定（24時間サイクル）
+        if hour >= phase_hours['free']:
+            # 20:00以降 - FREE phase
             self.current_phase = WorkflowPhase.FREE
-        elif hour >= 6 and hour < 20:
-            # 06:00-20:00の間は、会議開始イベントによってPROCESSING→ACTIVEに遷移
-            # _execute_eventメソッドでフェーズが更新される
-            # ここでは現在のフェーズを維持（手動変更しない）
-            pass
+        elif hour >= phase_hours['active']:
+            # 07:00-19:59 - ACTIVE phase
+            self.current_phase = WorkflowPhase.ACTIVE
+        elif hour >= phase_hours['processing']:
+            # 06:00-06:59 - PROCESSING phase (long-term memory processing)
+            self.current_phase = WorkflowPhase.PROCESSING
         else:
-            # 夜間待機時間 (00:00-05:59)
+            # 00:00-05:59 - STANDBY phase
             self.current_phase = WorkflowPhase.STANDBY
             
     async def handle_user_override(self, command: str, duration_minutes: int = 60):
@@ -604,12 +624,13 @@ def create_daily_workflow_system(channel_ids: Dict[str, int]) -> DailyWorkflowSy
 if __name__ == "__main__":
     # テスト実行
     async def test_daily_workflow():
-        # テスト用チャンネルID（実際の値は環境変数から取得）
+        # テスト用チャンネルID（実際の値は設定から取得）
+        discord_settings = get_discord_settings()
         channel_ids = {
-            "command_center": int(os.getenv('COMMAND_CENTER_CHANNEL_ID', '0')),
-            "lounge": int(os.getenv('LOUNGE_CHANNEL_ID', '0')),
-            "development": int(os.getenv('DEVELOPMENT_CHANNEL_ID', '0')),
-            "creation": int(os.getenv('CREATION_CHANNEL_ID', '0'))
+            "command_center": discord_settings.command_center_id,
+            "lounge": discord_settings.lounge_id,
+            "development": discord_settings.development_id,
+            "creation": discord_settings.creation_id
         }
         
         workflow = DailyWorkflowSystem(channel_ids)

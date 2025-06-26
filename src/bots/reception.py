@@ -8,6 +8,9 @@ from datetime import datetime
 from typing import Optional, Dict, Any
 import discord
 
+# Discord.py設計制限によるPyNaCl警告無効化（必要な制御コード）
+discord.VoiceClient.warn_nacl = False
+
 
 class ReceptionClient(discord.Client):
     """

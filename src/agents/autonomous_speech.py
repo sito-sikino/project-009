@@ -64,7 +64,7 @@ class AutonomousSpeechSystem:
         
         # AppSettingsから環境設定を取得
         self.speech_probability = 1.0 if self.environment == Environment.TEST else 0.33
-        self.tick_interval = system_settings.system.autonomous_speech_interval
+        self.tick_interval = system_settings.autonomous_speech_interval
         
         # 前回発言情報（LLMに渡す文脈として使用）
         self.last_speech_info = {
@@ -258,12 +258,16 @@ class AutonomousSpeechSystem:
         if not self.workflow_system:
             return False
             
-        # ワークフローイベントの実行時刻周辺（±1分）をチェック
+        # ワークフローイベントの実行時刻周辺（±1分）をチェック（設定ベース）
+        from ..config.settings import get_system_settings
+        system_settings = get_system_settings()
         current_time = datetime.now()
+        
+        # 設定から重要イベント時刻を取得
         critical_times = [
-            (7, 0),   # Morning meeting
-            (20, 0),  # Work conclusion
-            (0, 0)    # System rest
+            system_settings.parse_time_setting(system_settings.workflow_morning_workflow_time),  # Morning workflow
+            system_settings.parse_time_setting(system_settings.workflow_work_conclusion_time),   # Work conclusion
+            system_settings.parse_time_setting(system_settings.workflow_system_rest_time)       # System rest
         ]
         
         for event_hour, event_minute in critical_times:
@@ -333,13 +337,12 @@ class AutonomousSpeechSystem:
         if not channel_name:
             channel_name = f"channel-{channel}"
         
-        # 自発発言用の特別なメッセージ作成
         if work_mode:
-            context_message = f"{channel_name}で、現在のタスク「{active_tasks}」に関連して、自発的に有益な発言をしたい。"
+            context_message = f"現在のタスク「{active_tasks}」に関連して、自発的に有益な発言をしたい。"
         elif phase.value == "active":
-            context_message = f"{channel_name}で、会議や議論を促進するために自発的に発言したい。"
+            context_message = "会議や議論を促進するために自発的に発言したい。"
         else:
-            context_message = f"{channel_name}で、チームとのコミュニケーションのために自発的に発言したい。"
+            context_message = "チームとのコミュニケーションのために自発的に発言したい。"
         
         return {
             'message': context_message,

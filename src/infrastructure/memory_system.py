@@ -3,7 +3,6 @@ Improved Memory System with Production Enhancements
 本番環境向け改善版Memory System
 """
 
-import os
 import asyncio
 import json
 import logging
@@ -20,6 +19,8 @@ import redis.asyncio as redis
 import asyncpg
 from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from pydantic import SecretStr
+
+from ..config.settings import get_database_settings, get_ai_settings, get_system_settings
 
 
 @dataclass
@@ -132,13 +133,16 @@ class ImprovedDiscordMemorySystem:
         # ロギング設定（最初に初期化）
         self.logger = self._setup_logging()
         
-        # 環境変数から安全に取得
-        self.redis_url = redis_url or os.getenv('REDIS_URL', 'redis://localhost:6379')
-        postgres_url_env = postgres_url or os.getenv('POSTGRESQL_URL', '')
+        # 設定から安全に取得
+        db_settings = get_database_settings()
+        ai_settings = get_ai_settings()
+        
+        self.redis_url = redis_url or db_settings.redis_url
+        postgres_url_env = postgres_url or db_settings.postgresql_url
         self.postgres_url = self._sanitize_postgres_url(postgres_url_env) if postgres_url_env else ''
         
         # Google Embeddings設定
-        api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
+        api_key = gemini_api_key or ai_settings.gemini_api_key
         self.embeddings_client = GoogleGenerativeAIEmbeddings(
             model="models/text-embedding-004",
             google_api_key=SecretStr(api_key) if api_key else None,
@@ -150,11 +154,11 @@ class ImprovedDiscordMemorySystem:
         self.redis_pool: Optional[redis.ConnectionPool] = None
         self.postgres_pool: Optional[asyncpg.Pool] = None
         
-        # 設定（環境変数対応）
+        # 設定（中央管理対応）
         self.hot_memory_limit = 20
-        self.hot_memory_ttl = int(os.getenv('HOT_MEMORY_TTL_SECONDS', '86400'))
-        self.cold_retention_days = int(os.getenv('COLD_MEMORY_RETENTION_DAYS', '30'))
-        self.migration_batch_size = int(os.getenv('MEMORY_MIGRATION_BATCH_SIZE', '100'))
+        self.hot_memory_ttl = db_settings.hot_memory_ttl_seconds
+        self.cold_retention_days = db_settings.cold_memory_retention_days
+        self.migration_batch_size = db_settings.memory_migration_batch_size
         self.embedding_model = "models/text-embedding-004"
         self.similarity_threshold = 0.7
         self.max_cold_results = 10
@@ -193,7 +197,8 @@ class ImprovedDiscordMemorySystem:
     def _setup_logging(self) -> logging.Logger:
         """構造化ロギング設定"""
         logger = logging.getLogger(__name__)
-        logger.setLevel(os.getenv('LOG_LEVEL', 'INFO'))
+        system_settings = get_system_settings()
+        logger.setLevel(system_settings.log_level)
         
         # 構造化ログフォーマット
         formatter = logging.Formatter(
@@ -209,6 +214,9 @@ class ImprovedDiscordMemorySystem:
     async def initialize(self) -> bool:
         """Memory System初期化（Fail-fast対応改善版）"""
         try:
+            # 設定を取得（メソッドスコープ内で定義）
+            db_settings = get_database_settings()
+            
             # Redis接続プール設定強化（Fail-fast対応）
             if not self.redis_url:
                 raise MemorySystemConnectionError("Redis URL not provided")
@@ -216,7 +224,7 @@ class ImprovedDiscordMemorySystem:
             # Redis接続のFail-fast設定
             self.redis_pool = redis.ConnectionPool.from_url(
                 self.redis_url,
-                max_connections=int(os.getenv('REDIS_MAX_CONNECTIONS', '10')),
+                max_connections=db_settings.redis_max_connections,
                 decode_responses=True,
                 encoding="utf-8",
                 retry_on_timeout=False,  # Fail-fast: リトライ無効
@@ -247,8 +255,8 @@ class ImprovedDiscordMemorySystem:
                 self.postgres_pool = await asyncio.wait_for(
                     asyncpg.create_pool(
                         self.postgres_url,
-                        min_size=int(os.getenv('POSTGRES_POOL_MIN_SIZE', '2')),
-                        max_size=int(os.getenv('POSTGRES_POOL_MAX_SIZE', '10')),
+                        min_size=db_settings.postgres_pool_min_size,
+                        max_size=db_settings.postgres_pool_max_size,
                         max_queries=50000,
                         max_inactive_connection_lifetime=300.0,
                         command_timeout=2.0,  # Fail-fast: 2秒コマンドタイムアウト
@@ -948,10 +956,13 @@ class ImprovedDiscordMemorySystem:
 # Factory関数
 def create_improved_memory_system() -> ImprovedDiscordMemorySystem:
     """改善版Memory System生成"""
-    # 環境変数は None の可能性があるため、デフォルト値で初期化
-    redis_url = os.getenv('REDIS_URL') or 'redis://localhost:6379'
-    postgres_url = os.getenv('POSTGRESQL_URL') or ''
-    gemini_api_key = os.getenv('GEMINI_API_KEY') or ''
+    # 中央設定から取得
+    db_settings = get_database_settings()
+    ai_settings = get_ai_settings()
+    
+    redis_url = db_settings.redis_url
+    postgres_url = db_settings.postgresql_url
+    gemini_api_key = ai_settings.gemini_api_key
     
     return ImprovedDiscordMemorySystem(
         redis_url=redis_url,

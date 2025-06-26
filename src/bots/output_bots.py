@@ -9,6 +9,9 @@ from typing import Dict, Any, Optional
 import discord
 from discord.ext import commands
 
+# Discord.py設計制限によるPyNaCl警告無効化（必要な制御コード）
+discord.VoiceClient.warn_nacl = False
+
 logger = logging.getLogger(__name__)
 
 

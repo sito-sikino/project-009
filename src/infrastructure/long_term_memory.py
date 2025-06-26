@@ -6,7 +6,6 @@ Long-term Memory System with 3-API Batch Processing
 import asyncio
 import json
 import logging
-import os
 from datetime import datetime, timedelta
 from typing import Dict, List, Any, Optional, Tuple
 from dataclasses import dataclass
@@ -25,6 +24,7 @@ from .memory_system import (
     MemorySystemConnectionError
 )
 from .embedding_client import GoogleEmbeddingClient
+from ..config.settings import get_long_term_memory_settings, get_ai_settings
 
 
 @dataclass
@@ -67,8 +67,9 @@ class LongTermMemoryProcessor:
 
         self.logger = logging.getLogger(__name__)
 
-        # Phase 3: 環境変数制御機能実装
-        self.is_enabled = os.getenv('LONG_TERM_MEMORY_ENABLED', 'false').lower() == 'true'
+        # Phase 3: 設定ベース制御機能実装
+        ltm_settings = get_long_term_memory_settings()
+        self.is_enabled = ltm_settings.enabled
         self.logger.info(f"🧠 Long-term Memory System: {'ENABLED' if self.is_enabled else 'DISABLED'}")
 
         # 基盤メモリシステム
@@ -79,7 +80,8 @@ class LongTermMemoryProcessor:
         )
 
         # Gemini 2.0 Flash（統合分析用）
-        api_key = gemini_api_key or os.getenv('GEMINI_API_KEY')
+        ai_settings = get_ai_settings()
+        api_key = gemini_api_key or ai_settings.gemini_api_key
         self.gemini_flash = GoogleGenerativeAI(
             model="models/gemini-2.0-flash-exp",
             api_key=SecretStr(api_key) if api_key else None,
@@ -92,20 +94,19 @@ class LongTermMemoryProcessor:
             task_type="RETRIEVAL_DOCUMENT"
         )
 
-        # 重複検出システム（環境変数制御）
-        deduplication_threshold = float(os.getenv('DEDUPLICATION_THRESHOLD', '0.8'))
+        # 重複検出システム（設定ベース制御）
         self.deduplicator = MinHashDeduplicator(
-            threshold=deduplication_threshold,
+            threshold=ltm_settings.deduplication_threshold,
             num_perm=128
         )
 
-        # API使用量カウンター（環境変数制御）
-        self.daily_api_limit = int(os.getenv('API_QUOTA_DAILY_LIMIT', '3'))
+        # API使用量カウンター（設定ベース制御）
+        self.daily_api_limit = ltm_settings.api_quota_daily_limit
         self.api_usage_count = 0
         self.last_processing_date: Optional[datetime] = None
 
-        # 重要度しきい値（環境変数制御）
-        self.min_importance_score = float(os.getenv('MIN_IMPORTANCE_SCORE', '0.4'))
+        # 重要度しきい値（設定ベース制御）
+        self.min_importance_score = ltm_settings.min_importance_score
 
         # パフォーマンスメトリクス記録（Phase 2.3統合）
         self.performance_metrics = {

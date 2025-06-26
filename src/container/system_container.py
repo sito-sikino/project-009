@@ -394,7 +394,7 @@ class SystemContainer:
             workflow_system=daily_workflow,
             priority_queue=priority_queue,
             gemini_client=gemini_client,
-            system_settings=settings
+            system_settings=settings.system
         )
     
     def _create_long_term_memory_processor(self, dependencies: Dict[str, Any] = None):

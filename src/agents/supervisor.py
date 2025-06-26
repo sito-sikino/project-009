@@ -146,39 +146,27 @@ class AgentSupervisor:
         return updated_state
     
     async def _unified_selection_node(self, state: AgentState) -> AgentState:
-        """
-        統合エージェント選択ノード
+        """統合エージェント選択ノード（責務分離: API処理委譲）"""
+        if not self.gemini_client:
+            raise RuntimeError("Gemini client is required but not available")
         
-        Args:
-            state: 現在の状態
-            
-        Returns:
-            AgentState: エージェント選択結果が追加された状態
-        """
-        # 最新メッセージ取得
         latest_message = ""
         if state['messages']:
             last_msg = state['messages'][-1]
             if isinstance(last_msg, dict):
                 latest_message = last_msg.get('content', '')
             else:
-                # LangChain Message objectの場合
                 latest_message = getattr(last_msg, 'content', str(last_msg))
         
-        if not self.gemini_client:
-            raise RuntimeError("Gemini client is required but not available")
-        
-        # Gemini統合API呼び出し
-        context = {
+        enriched_context = {
             'message': latest_message,
             'hot_memory': state['memory_context'].get('hot_memory', []),
             'cold_memory': state['memory_context'].get('cold_memory', []),
             'channel_id': state['channel_id']
         }
         
-        result = await self.gemini_client.unified_agent_selection(context)
+        result = await self.gemini_client.unified_agent_selection(enriched_context)
         
-        # 状態更新
         updated_state = state.copy()
         updated_state['selected_agent'] = result['selected_agent']
         updated_state['response_content'] = result['response_content']
