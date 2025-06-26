@@ -356,10 +356,19 @@ async def setup_health_monitoring(memory_system, discord_clients, port: int = 80
     performance_monitor.setup_health_checks(memory_system, discord_clients)
     
     # Circuit Breaker 設定
+    # FIXED: 厳禁フォールバック処理削除 - 必須環境変数として明示的設定要求
+    failure_threshold = os.getenv('CIRCUIT_BREAKER_FAILURE_THRESHOLD')
+    recovery_timeout = os.getenv('CIRCUIT_BREAKER_RECOVERY_TIMEOUT')
+    
+    if failure_threshold is None:
+        raise EnvironmentError("Required environment variable 'CIRCUIT_BREAKER_FAILURE_THRESHOLD' is not set")
+    if recovery_timeout is None:
+        raise EnvironmentError("Required environment variable 'CIRCUIT_BREAKER_RECOVERY_TIMEOUT' is not set")
+    
     performance_monitor.create_circuit_breaker(
         "memory_operations",
-        failure_threshold=int(os.getenv('CIRCUIT_BREAKER_FAILURE_THRESHOLD', '5')),
-        recovery_timeout=int(os.getenv('CIRCUIT_BREAKER_RECOVERY_TIMEOUT', '60'))
+        failure_threshold=int(failure_threshold),
+        recovery_timeout=int(recovery_timeout)
     )
     
     performance_monitor.create_circuit_breaker(

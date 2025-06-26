@@ -207,7 +207,7 @@ class SystemSettings:
             environment=environment,
             debug=os.getenv('DEBUG').lower() == 'true',
             log_level=os.getenv('LOG_LEVEL').upper(),
-            log_file=os.getenv('LOG_FILE'),
+            log_file=cls._get_required_env('LOG_FILE'),
             health_check_port=int(os.getenv('HEALTH_CHECK_PORT')),
             health_check_host=os.getenv('HEALTH_CHECK_HOST'),
             max_concurrent_users=int(os.getenv('MAX_CONCURRENT_USERS')),
@@ -215,6 +215,14 @@ class SystemSettings:
             autonomous_speech_test_interval=int(os.getenv('AUTONOMOUS_SPEECH_TEST_INTERVAL')),
             autonomous_speech_prod_interval=int(os.getenv('AUTONOMOUS_SPEECH_PROD_INTERVAL'))
         )
+    
+    @classmethod
+    def _get_required_env(cls, key: str) -> str:
+        """必須環境変数の取得"""
+        value = os.getenv(key)
+        if not value:
+            raise EnvironmentError(f"Required environment variable '{key}' is not set")
+        return value
     
     @property
     def is_test(self) -> bool:

@@ -39,6 +39,9 @@ class ReceptionClient(discord.Client):
         self.message_count = 0
         self.connection_status = "disconnected"
         
+        # CRITICAL FIX: Add ready event for synchronization
+        self.ready_event = asyncio.Event()
+        
     async def on_connect(self):
         """Gateway connection established"""
         self.connection_status = "connected"
@@ -66,6 +69,9 @@ class ReceptionClient(discord.Client):
                 perms = channel.permissions_for(guild.me)
                 print(f"      📺 #{channel.name}: read={perms.read_messages}, send={perms.send_messages}")
         print(f"🎯 Monitoring for messages...")
+        
+        # CRITICAL FIX: Signal that client is ready for message processing
+        self.ready_event.set()
         
     async def on_resumed(self):
         """Connection resumed"""

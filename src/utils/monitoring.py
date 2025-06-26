@@ -320,12 +320,27 @@ class PerformanceMonitor:
         self.health_checker = HealthChecker()
         self.circuit_breakers: Dict[str, CircuitBreaker] = {}
         
+        # FIXED: 厳禁フォールバック処理削除 - 必須環境変数として明示的設定要求
+        hot_memory_ms = os.getenv('HOT_MEMORY_TARGET_MS')
+        cold_memory_ms = os.getenv('COLD_MEMORY_TARGET_MS')
+        embedding_ms = os.getenv('EMBEDDING_TARGET_MS')
+        error_rate = os.getenv('ERROR_RATE_THRESHOLD')
+        
+        if hot_memory_ms is None:
+            raise EnvironmentError("Required environment variable 'HOT_MEMORY_TARGET_MS' is not set")
+        if cold_memory_ms is None:
+            raise EnvironmentError("Required environment variable 'COLD_MEMORY_TARGET_MS' is not set")
+        if embedding_ms is None:
+            raise EnvironmentError("Required environment variable 'EMBEDDING_TARGET_MS' is not set")
+        if error_rate is None:
+            raise EnvironmentError("Required environment variable 'ERROR_RATE_THRESHOLD' is not set")
+        
         # パフォーマンス閾値
         self.thresholds = {
-            "hot_memory_ms": int(os.getenv('HOT_MEMORY_TARGET_MS')),
-            "cold_memory_ms": int(os.getenv('COLD_MEMORY_TARGET_MS')),
-            "embedding_ms": int(os.getenv('EMBEDDING_TARGET_MS')),
-            "error_rate": float(os.getenv('ERROR_RATE_THRESHOLD'))
+            "hot_memory_ms": int(hot_memory_ms),
+            "cold_memory_ms": int(cold_memory_ms),
+            "embedding_ms": int(embedding_ms),
+            "error_rate": float(error_rate)
         }
         
         self.logger = logging.getLogger(__name__)

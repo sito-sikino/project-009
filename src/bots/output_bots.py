@@ -41,6 +41,9 @@ class OutputBot(discord.Client):
         self.token = token
         self.bot_name = bot_name
         self.personality = personality
+        
+        # CRITICAL FIX: Add ready event for synchronization
+        self.ready_event = asyncio.Event()
     
     async def send_message(self, message_data: Dict[str, Any]) -> None:
         """
@@ -70,6 +73,9 @@ class OutputBot(discord.Client):
         """Bot準備完了イベント"""
         logger.info(f'{self.bot_name.upper()} Bot ({self.user}) is ready!')
         logger.info(f'Personality: {self.personality}')
+        
+        # CRITICAL FIX: Signal that client is ready
+        self.ready_event.set()
 
 
 class SpectraBot(OutputBot):

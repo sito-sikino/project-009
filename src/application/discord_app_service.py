@@ -159,11 +159,15 @@ class DiscordAppService:
     async def _run_main_application_loop(self) -> None:
         """メインアプリケーションループ実行"""
         try:
-            # 並行実行: Discord clients + Message processing
-            await asyncio.gather(
-                self._start_discord_clients(),
-                self._message_processing_loop()
-            )
+            # CRITICAL FIX: Start Discord clients as background tasks
+            discord_task = asyncio.create_task(self._start_discord_clients())
+            
+            # CRITICAL FIX: Start message processing loop immediately 
+            message_task = asyncio.create_task(self._message_processing_loop())
+            
+            # Wait for either task to complete (should be never unless error/shutdown)
+            await asyncio.gather(discord_task, message_task, return_exceptions=True)
+            
         except KeyboardInterrupt:
             self.logger.info("📝 Received shutdown signal")
         except Exception as e:
@@ -171,7 +175,7 @@ class DiscordAppService:
             raise
     
     async def _start_discord_clients(self) -> None:
-        """Discord クライアント順次接続"""
+        """Discord クライアント順次接続 - FIXED: Wait for each client to be ready"""
         self.logger.info("🔌 Starting Discord clients...")
         
         # Sequential connection approach to prevent event loop conflicts
@@ -187,25 +191,34 @@ class DiscordAppService:
         for name, client, token in connection_order:
             self.logger.info(f"🔌 Connecting {name}...")
             
-            # Create background task for client connection
+            # Create background task for client connection - MUST run continuously
             connection_task = asyncio.create_task(client.start(token))
             
-            # Allow brief initialization time
-            await asyncio.sleep(2)
+            # CRITICAL FIX: Wait for client to be ready before proceeding
+            try:
+                # Wait up to 30 seconds for the client to be ready
+                await asyncio.wait_for(client.ready_event.wait(), timeout=30.0)
+                self.logger.info(f"✅ {name} is ready and can process events")
+            except asyncio.TimeoutError:
+                self.logger.error(f"❌ {name} failed to ready within 30 seconds")
+                # Continue anyway to prevent full system failure
+            except Exception as e:
+                self.logger.error(f"❌ Error waiting for {name} ready state: {e}")
             
-            # Check connection progress
-            if not connection_task.done():
-                self.logger.info(f"✅ {name} connection initiated successfully")
-                connected_clients.append((name, client, connection_task))
-            else:
-                # Connection completed immediately or failed
-                await connection_task
-                self.logger.info(f"✅ {name} connected successfully")
-                connected_clients.append((name, client, connection_task))
+            # Store task regardless of completion status - it must continue running
+            connected_clients.append((name, client, connection_task))
         
         self.connected_clients = connected_clients
         log_component_status("discord_clients", "ready", f"{len(connected_clients)}/4 clients")
-        self.logger.info(f"🎉 Successfully initiated {len(connected_clients)}/4 Discord clients")
+        self.logger.info(f"🎉 Successfully started {len(connected_clients)}/4 Discord client tasks")
+        
+        # CRITICAL FIX: Store tasks for background execution without blocking
+        self.client_tasks = [task for _, _, task in connected_clients]
+        self.logger.info("🔄 Discord clients running in background for event processing...")
+        self.logger.info("✅ All Discord clients are ready for message reception!")
+        
+        # RETURN immediately to allow message processing loop to start
+        # Client tasks continue running in background
     
     async def _message_processing_loop(self) -> None:
         """メッセージ処理メインループ"""
@@ -449,6 +462,17 @@ class DiscordAppService:
     
     async def _disconnect_discord_clients(self) -> None:
         """Discordクライアント切断"""
+        # Cancel client tasks first
+        if hasattr(self, 'client_tasks'):
+            for task in self.client_tasks:
+                if not task.done():
+                    task.cancel()
+                    try:
+                        await task
+                    except asyncio.CancelledError:
+                        pass
+        
+        # Then disconnect clients
         for name, client, task in self.connected_clients:
             try:
                 self.logger.info(f"🔌 Disconnecting {name}...")
